@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title><![CDATA[前端客栈]]></title>
+  <subtitle><![CDATA[挚爱前端，小驻客栈]]></subtitle>
+  <link href="/atom.xml" rel="self"/>
+  <link href="http://humicai.github.io/"/>
+  <updated>2015-12-24T08:50:11.162Z</updated>
+  <id>http://humicai.github.io/</id>
+  
+  <author>
+    <name><![CDATA[胡敉才]]></name>
+    
+  </author>
+  
+  <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title><![CDATA[【译】MarkDown基础语法]]></title>
+    <link href="http://humicai.github.io/2015/12/24/MarkDown-Basics/"/>
+    <id>http://humicai.github.io/2015/12/24/MarkDown-Basics/</id>
+    <published>2015-12-24T03:53:46.000Z</published>
+    <updated>2015-12-24T08:50:11.162Z</updated>
+    <content type="html"><![CDATA[<h2 id="u4E00_u3001_u57FA_u7840_u5199_u6CD5_uFF08Basic_writing_uFF09"><a href="#u4E00_u3001_u57FA_u7840_u5199_u6CD5_uFF08Basic_writing_uFF09" class="headerlink" title="一、基础写法（Basic writing）"></a>一、基础写法（Basic writing）</h2><h4 id="u6807_u9898_uFF08Headings_uFF09"><a href="#u6807_u9898_uFF08Headings_uFF09" class="headerlink" title="标题（Headings）"></a>标题（Headings）</h4><p>You can create a heading by adding one or more <code>#</code> symbols before your heading text. The number of <code>#</code> you use will determine the size of the heading.<br>Markdown语法下的标题，你可以在标题文本前添加一个或更多 <code>#</code> 标识，<code>#</code> 标识的数量将决定标题的尺寸。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># &#26368;&#22823;&#30340;&#26631;&#39064; (&#23545;&#24212;&#19968;&#20010; &#60;h1&#62; &#26631;&#31614;)&#10;## &#31532;&#20108;&#22823;&#30340;&#26631;&#39064; (&#23545;&#24212;&#19968;&#20010; &#60;h2&#62; &#26631;&#31614;)&#10;...&#10;###### &#31532;&#20845;&#22823;&#30340;&#26631;&#39064; (&#23545;&#24212;&#19968;&#20010; &#60;h6&#62; &#26631;&#31614;)</span><br></pre></td></tr></table></figure>
+<h4 id="u6BB5_u843D_uFF08Paragraphs_uFF09"><a href="#u6BB5_u843D_uFF08Paragraphs_uFF09" class="headerlink" title="段落（Paragraphs）"></a>段落（Paragraphs）</h4><p>Paragraphs in Markdown are just one or more lines of consecutive text followed by one or more blank lines.<br>Markdown语法下的段落，仅仅只需要一行或多行纯文本即可实现，为了实现段间距，可以紧跟一行或多行空白换行即可。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#27573;&#33853;&#19968;&#10;&#10;&#27573;&#33853;&#20108;</span><br></pre></td></tr></table></figure>
+<h4 id="u5F15_u6587_uFF08Blockquotes_uFF09"><a href="#u5F15_u6587_uFF08Blockquotes_uFF09" class="headerlink" title="引文（Blockquotes）"></a>引文（Blockquotes）</h4><p>You can indicate blockquotes with a <code>&gt;</code>.<br>Markdown语法下的引文，你可以用 <code>&gt;</code> 标识。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#20439;&#35805;&#35828;&#65306;&#10;&#10;&#62;&#37329;&#26080;&#36275;&#36196;&#65292;&#20154;&#26080;&#23436;&#20154;</span><br></pre></td></tr></table></figure>
+<h4 id="u6837_u5F0F_u5316_u6587_u672C_uFF08Styling_text_uFF09"><a href="#u6837_u5F0F_u5316_u6587_u672C_uFF08Styling_text_uFF09" class="headerlink" title="样式化文本（Styling text）"></a>样式化文本（Styling text）</h4><p>You can make text <strong>bold</strong> or <em>italic</em>.<br>Markdown语法下的文本样式，你可以用 一个<code>*</code>包裹文本内容让文本倾斜、 用两个则让文本加粗。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">*This text will be italic*&#10;**This text will be bold**</span><br></pre></td></tr></table></figure>
+<h2 id="u4E8C_u3001_u5217_u8868_uFF08Lists_uFF09"><a href="#u4E8C_u3001_u5217_u8868_uFF08Lists_uFF09" class="headerlink" title="二、列表（Lists）"></a>二、列表（Lists）</h2><h4 id="u65E0_u5E8F_u5217_u8868_uFF08Unordered_lists_uFF09"><a href="#u65E0_u5E8F_u5217_u8868_uFF08Unordered_lists_uFF09" class="headerlink" title="无序列表（Unordered lists）"></a>无序列表（Unordered lists）</h4><p>You can make an unordered list by preceding list items with either a <code><em></em></code> or a <code>-</code>.<br>Markdown语法下的做一个无序列表，可以通过在列表项前面用一个<code></code>或者<code>-</code>引导完成。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">* Item&#10;* Item&#10;* Item&#10;&#10;- Item&#10;- Item&#10;- Item</span><br></pre></td></tr></table></figure>
+<h4 id="u6709_u5E8F_u5217_u8868_uFF08Ordered_lists_uFF09"><a href="#u6709_u5E8F_u5217_u8868_uFF08Ordered_lists_uFF09" class="headerlink" title="有序列表（Ordered lists）"></a>有序列表（Ordered lists）</h4><p>You can make an ordered list by preceding list items with a number.<br>Markdown语法下的做一个有序列表，可以通过在列表项前面用阿拉伯数字引导完成。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1. Item 1&#10;2. Item 2&#10;3. Item 3</span><br></pre></td></tr></table></figure>
+<h4 id="u5D4C_u5957_u5217_u8868_uFF08Nested_lists_uFF09"><a href="#u5D4C_u5957_u5217_u8868_uFF08Nested_lists_uFF09" class="headerlink" title="嵌套列表（Nested lists）"></a>嵌套列表（Nested lists）</h4><p>You can create nested lists by indenting list items by two spaces.<br>Markdown语法下的做一个嵌套列表，可以通过给下级列表缩进两个空白格的量实现。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1. Item 1&#10;  1. A corollary to the above item.&#10;  2. Yet another point to consider.&#10;2. Item 2&#10;  * A corollary that does not need to be ordered.&#10;    * This is indented four spaces, because it&#39;s two spaces further than the item above.&#10;    * You might want to consider making a new list.&#10;3. Item 3</span><br></pre></td></tr></table></figure>
+<h2 id="u4E09_u3001_u4EE3_u7801_u683C_u5F0F_u5316_uFF08Code_formatting_uFF09"><a href="#u4E09_u3001_u4EE3_u7801_u683C_u5F0F_u5316_uFF08Code_formatting_uFF09" class="headerlink" title="三、代码格式化（Code formatting）"></a>三、代码格式化（Code formatting）</h2><h4 id="u5355_u884C_u683C_u5F0F_u5316_uFF08Inline_formats_uFF09"><a href="#u5355_u884C_u683C_u5F0F_u5316_uFF08Inline_formats_uFF09" class="headerlink" title="单行格式化（Inline formats）"></a>单行格式化（Inline formats）</h4><p>Use single backticks (<code>`</code>) to format text in a special monospace format. Everything within the backticks appear as-is, with no other special formatting.<br>Markdown语法下的单行格式化，使用单引号来格式化文本输出内容显示在一个特定样式区域，在其中的一切内容原样输出显示，没有任何其他特殊格式。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Here&#39;s an idea: why don&#39;t we take `SuperiorProject` and turn it into `**Reasonable**Project`.</span><br></pre></td></tr></table></figure>
+<h4 id="u591A_u884C_u683C_u5F0F_u5316_uFF08Multiple_lines_formats_uFF09"><a href="#u591A_u884C_u683C_u5F0F_u5316_uFF08Multiple_lines_formats_uFF09" class="headerlink" title="多行格式化（Multiple lines formats）"></a>多行格式化（Multiple lines formats）</h4><p>You can use triple backticks (<code>`</code>) to format text as its own distinct block.<br>Markdown语法下的多行格式化，使用三个引号来包裹自身内容区域。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Check out this neat program I wrote:&#10;&#10;    &#60;code&#62;```&#60;/code&#62;&#10;    x = 0&#10;    x = 2 + 2&#10;    what is x&#10;    &#60;code&#62;```&#60;/code&#62;</span><br></pre></td></tr></table></figure>
+<h2 id="u56DB_u3001_u94FE_u63A5_uFF08Links_uFF09"><a href="#u56DB_u3001_u94FE_u63A5_uFF08Links_uFF09" class="headerlink" title="四、链接（Links）"></a>四、链接（Links）</h2><p>You can create an inline link by wrapping link text in brackets ( <code>[ ]</code> ), and then wrapping the link in parentheses ( <code>( )</code> ).<br>你可以在中括号中输入文本内容来创建一个链接，并且在后面小括号中输入链接地址。</p>
+<p>For example, to create a hyperlink to www.humicai.cn, with a link text that says：轻微生活, you’d write this in Markdown: <a href="https://www.humicai.cn" target="_blank" rel="external">轻微生活</a>.<br>例如，要创建一个跳转到www.humicai.cn的超链接，用一个链接文本标明访问的是轻微生活！在Markdown语法下，可以这样写<code>[轻微生活](http://www.humicai.cn)</code></p>
+<p>查看原文：<a href="https://help.github.com/articles/markdown-basics/" target="_blank" rel="external">Github 帮助文档 - Markdown Basics</a></p>
+]]></content>
+    <summary type="html">
+    <![CDATA[<h2 id="u4E00_u3001_u57FA_u7840_u5199_u6CD5_uFF08Basic_writing_uFF09"><a href="#u4E00_u3001_u57FA_u7840_u5199_u6CD5_uFF08Basic_writing_uFF09]]>
+    </summary>
+    
+      <category term="markdown" scheme="http://humicai.github.io/tags/markdown/"/>
+    
+      <category term="笔记" scheme="http://humicai.github.io/categories/%E7%AC%94%E8%AE%B0/"/>
+    
+  </entry>
+  
+  <entry>
+    <title><![CDATA[Hexo第一篇文章]]></title>
+    <link href="http://humicai.github.io/2015/12/23/hello-world/"/>
+    <id>http://humicai.github.io/2015/12/23/hello-world/</id>
+    <published>2015-12-23T09:57:50.860Z</published>
+    <updated>2015-12-23T09:57:50.860Z</updated>
+    <content type="html"><![CDATA[<p>Welcome to <a href="http://hexo.io/" target="_blank" rel="external">Hexo</a>! This is your very first post. Check <a href="http://hexo.io/docs/" target="_blank" rel="external">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="http://hexo.io/docs/troubleshooting.html" target="_blank" rel="external">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="external">GitHub</a>.</p>
+<h2 id="Quick_Start"><a href="#Quick_Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="MarkDown_u968F_u673A_u56FE_u7247_u6F14_u793A"><a href="#MarkDown_u968F_u673A_u56FE_u7247_u6F14_u793A" class="headerlink" title="MarkDown随机图片演示"></a>MarkDown随机图片演示</h3><p><img src="https://unsplash.it/900/360/?random" alt="MarkDown随机图片演示" title="MarkDown随机图片演示"></p>
+<h3 id="Create_a_new_post"><a href="#Create_a_new_post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
+<p>More info: <a href="http://hexo.io/docs/writing.html" target="_blank" rel="external">Writing</a></p>
+<h3 id="Run_server"><a href="#Run_server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
+<p>More info: <a href="http://hexo.io/docs/server.html" target="_blank" rel="external">Server</a></p>
+<h3 id="Generate_static_files"><a href="#Generate_static_files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
+<p>More info: <a href="http://hexo.io/docs/generating.html" target="_blank" rel="external">Generating</a></p>
+<h3 id="Deploy_to_remote_sites"><a href="#Deploy_to_remote_sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
+<p>More info: <a href="http://hexo.io/docs/deployment.html" target="_blank" rel="external">Deployment</a></p>
+]]></content>
+    <summary type="html">
+    <![CDATA[<p>Welcome to <a href="http://hexo.io/" target="_blank" rel="external">Hexo</a>! This is your very first post. Check <a href="http://hexo.io]]>
+    </summary>
+    
+  </entry>
+  
+</feed>
