@@ -1,0 +1,93 @@
+I"L)<p>最近用上了 GitHub Copilot，它的能力不时让我惊叹，于是越来越多地面向 tab 编程，机械键盘的损耗都小了许多:-p</p>
+
+<p>这天，它给我自动生成了一句像这样的日志打印代码：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">try</span> <span class="o">{</span>
+    <span class="c1">// ...</span>
+<span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">log</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"Xxx 操作出错，订单号 {}，操作人 {}"</span><span class="o">,</span> <span class="n">orderNumber</span><span class="o">,</span> <span class="n">operatorName</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>我盯着这行熟悉又陌生的代码——没错平时我自己也会这么写，但此时竟然产生了一丝不确定，它真的能按期望的效果，先打印出这句话，然后完整打印异常堆栈吗？</p>
+
+<p>既然有疑惑，那就刨根问底一下。</p>
+
+<h2 id="为什么疑惑">为什么疑惑？</h2>
+
+<p>问了自己这个问题之后，我回想了一下，可能是因为以前遇到过这个：</p>
+
+<p><img src="/images/posts/java/less-arguments-than-placeholders.png" alt="" /></p>
+
+<p>如果最后一个参数不是 Throwable 类型，那 IDEA 会给出警告：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>More arguments provided (3) than placeholders specified (2)
+</code></pre></div></div>
+
+<p>那为什么最后多出来的那个参数是 Throwable，IDE 就认为正常了呢？这就是本文要探索的问题。</p>
+
+<h2 id="消除疑惑">消除疑惑</h2>
+
+<p>遇事不决，<kbd>command + click</kbd> 一下。可以看到方法的定义是这样的：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">error</span><span class="o">(</span><span class="nc">String</span> <span class="n">format</span><span class="o">,</span> <span class="nc">Object</span><span class="o">...</span> <span class="n">arguments</span><span class="o">);</span>
+</code></pre></div></div>
+
+<p>可惜想看具体实现的时候发现实现类太多，索性写一个测试用例 debug 跟一下，一路 <kbd>F7</kbd> 进去（这里用的日志框架是 log4j2）：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>org.apache.logging.slf4j.Log4jLogger#error(java.lang.String, java.lang.Object...)
+org.apache.logging.log4j.spi.AbstractLogger#logIfEnabled(java.lang.String, org.apache.logging.log4j.Level, org.apache.logging.log4j.Marker, java.lang.String, java.lang.Object...)
+org.apache.logging.log4j.spi.AbstractLogger#logMessage(java.lang.String, org.apache.logging.log4j.Level, org.apache.logging.log4j.Marker, java.lang.String, java.lang.Object...)
+org.apache.logging.log4j.message.ParameterizedMessageFactory#newMessage(java.lang.String, java.lang.Object...)
+org.apache.logging.log4j.message.ParameterizedMessage#ParameterizedMessage(java.lang.String, java.lang.Object...)
+org.apache.logging.log4j.message.ParameterizedMessage#init
+</code></pre></div></div>
+
+<p>秘密就在这里了：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// org.apache.logging.log4j.message.ParameterizedMessage</span>
+
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">init</span><span class="o">(</span><span class="kd">final</span> <span class="nc">String</span> <span class="n">messagePattern</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">messagePattern</span> <span class="o">=</span> <span class="n">messagePattern</span><span class="o">;</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="nc">Math</span><span class="o">.</span><span class="na">max</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span> <span class="n">messagePattern</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">?</span> <span class="mi">0</span> <span class="o">:</span> <span class="n">messagePattern</span><span class="o">.</span><span class="na">length</span><span class="o">()</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="o">);</span> <span class="c1">// divide by 2</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">indices</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">int</span><span class="o">[</span><span class="n">len</span><span class="o">];</span> <span class="c1">// LOG4J2-1542 ensure non-zero array length</span>
+    <span class="c1">// 计算占位符个数</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">placeholders</span> <span class="o">=</span> <span class="nc">ParameterFormatter</span><span class="o">.</span><span class="na">countArgumentPlaceholders2</span><span class="o">(</span><span class="n">messagePattern</span><span class="o">,</span> <span class="n">indices</span><span class="o">);</span>
+    <span class="n">initThrowable</span><span class="o">(</span><span class="n">argArray</span><span class="o">,</span> <span class="n">placeholders</span><span class="o">);</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">usedCount</span> <span class="o">=</span> <span class="nc">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="n">placeholders</span><span class="o">,</span> <span class="n">argArray</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">?</span> <span class="mi">0</span> <span class="o">:</span> <span class="n">argArray</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">initThrowable</span><span class="o">(</span><span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">params</span><span class="o">,</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">usedParams</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">params</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">argCount</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="c1">// 如果占位符个数比参数个数少，且最后一个参数是 throwable 类型，</span>
+        <span class="c1">// 则将最后一个参数赋值给 Message 的成员</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">usedParams</span> <span class="o">&lt;</span> <span class="n">argCount</span> <span class="o">&amp;&amp;</span> <span class="k">this</span><span class="o">.</span><span class="na">throwable</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">params</span><span class="o">[</span><span class="n">argCount</span> <span class="o">-</span> <span class="mi">1</span><span class="o">]</span> <span class="k">instanceof</span> <span class="nc">Throwable</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">this</span><span class="o">.</span><span class="na">throwable</span> <span class="o">=</span> <span class="o">(</span><span class="nc">Throwable</span><span class="o">)</span> <span class="n">params</span><span class="o">[</span><span class="n">argCount</span> <span class="o">-</span> <span class="mi">1</span><span class="o">];</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>然后在调用堆栈回溯几步有：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// org.apache.logging.log4j.spi.AbstractLogger</span>
+
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">logMessage</span><span class="o">(</span><span class="kd">final</span> <span class="nc">String</span> <span class="n">fqcn</span><span class="o">,</span> <span class="kd">final</span> <span class="nc">Level</span> <span class="n">level</span><span class="o">,</span> <span class="kd">final</span> <span class="nc">Marker</span> <span class="n">marker</span><span class="o">,</span> <span class="kd">final</span> <span class="nc">String</span> <span class="n">message</span><span class="o">,</span>
+        <span class="kd">final</span> <span class="nc">Object</span><span class="o">...</span> <span class="n">params</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">Message</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">messageFactory</span><span class="o">.</span><span class="na">newMessage</span><span class="o">(</span><span class="n">message</span><span class="o">,</span> <span class="n">params</span><span class="o">);</span>
+    <span class="n">logMessageSafely</span><span class="o">(</span><span class="n">fqcn</span><span class="o">,</span> <span class="n">level</span><span class="o">,</span> <span class="n">marker</span><span class="o">,</span> <span class="n">msg</span><span class="o">,</span> <span class="n">msg</span><span class="o">.</span><span class="na">getThrowable</span><span class="o">());</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>至此基本上清晰了。</p>
+
+<h2 id="结论">结论</h2>
+
+<p>经过分析及实际运行验证：</p>
+
+<ul>
+  <li>AI 生成的代码可以按期望效果打印；</li>
+  <li>如果有比占位符多的非 Throwable 类型参数，会被忽略掉。</li>
+</ul>
+:ET

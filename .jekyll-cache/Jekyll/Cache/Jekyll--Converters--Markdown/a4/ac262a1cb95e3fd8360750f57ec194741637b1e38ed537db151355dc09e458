@@ -1,0 +1,63 @@
+I"%<p>有时我会自定义一些 zsh 命令，以便提升某些高频操作的效率。本文记录我给一个自定义命令添加参数自动补全的方法。</p>
+
+<h2 id="场景">场景</h2>
+
+<p>我自定义了一个 zsh 命令 <code class="language-plaintext highlighter-rouge">gmt</code>，执行 <code class="language-plaintext highlighter-rouge">gmt &lt;b2&gt;</code>，可以将当前所在的 git 分支 merge 到 <code class="language-plaintext highlighter-rouge">&lt;b2&gt;</code> 这个分支。</p>
+
+<p>它具体完成以下工作：</p>
+
+<ol>
+  <li>切换到 git 分支 <code class="language-plaintext highlighter-rouge">&lt;b2&gt;</code>；</li>
+  <li>将 <code class="language-plaintext highlighter-rouge">&lt;b2&gt;</code> 分支更新到最新；</li>
+  <li>询问是否合并，输入 <code class="language-plaintext highlighter-rouge">y</code> 则进行分支合并。</li>
+</ol>
+
+<p>也就是用一条命令完成一个 <code class="language-plaintext highlighter-rouge">git checkout b2</code>、<code class="language-plaintext highlighter-rouge">git pull origin b2</code>、<code class="language-plaintext highlighter-rouge">git merge b1</code> 这样的组合操作。</p>
+
+<p>用了一段时间，可以省一些事，美中不足的就是有时候分支名称比较长，只能手动输入，没有自动补全。</p>
+
+<h2 id="期望效果">期望效果</h2>
+
+<ol>
+  <li>输入 <code class="language-plaintext highlighter-rouge">gmt </code>，然后按 <kbd>tab</kbd>，自动提示本地的所有 git 分支名称；</li>
+  <li>输入 <code class="language-plaintext highlighter-rouge">gmt fe</code>，然后按 <kbd>tab</kbd>，自动补全以 <code class="language-plaintext highlighter-rouge">fe</code> 开头的 git 分支名称；</li>
+</ol>
+
+<h2 id="实现方法">实现方法</h2>
+
+<p>在 zsh 配置文件中添加如下代码：</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>compdef _git_merge_to_comp git_merge_to
+
+_git_merge_to_comp<span class="o">()</span>
+<span class="o">{</span>
+    <span class="nb">local</span> <span class="nt">-a</span> git_branches
+    <span class="nv">git_branches</span><span class="o">=(</span><span class="s2">"</span><span class="k">${</span><span class="p">(@f)</span><span class="si">$(</span>git branch <span class="nt">--format</span><span class="o">=</span><span class="s1">'%(refname:short)'</span><span class="si">)</span><span class="k">}</span><span class="s2">"</span><span class="o">)</span>
+    _describe <span class="s1">'command'</span> git_branches
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><em>注：<code class="language-plaintext highlighter-rouge">git_merge_to</code> 是一个自定义的函数，<code class="language-plaintext highlighter-rouge">gmt</code> 是这个函数的 alias。</em></p>
+
+<p>这段代码的意思就是使用 <code class="language-plaintext highlighter-rouge">_git_merge_to_comp</code> 这个函数来给 <code class="language-plaintext highlighter-rouge">git_merge_to</code> 命令做自动补全，自动补全的候选列表是当前项目的所有本地 git 分支名称。</p>
+
+<p>其中：</p>
+
+<p><code class="language-plaintext highlighter-rouge">compdef</code>、<code class="language-plaintext highlighter-rouge">_describe</code> 等的用法，可以参考 zsh 的官方文档 <a href="https://zsh.sourceforge.io/Doc/Release/Completion-System.html">Completion System</a>。</p>
+
+<p><code class="language-plaintext highlighter-rouge">git_branches=("${(@f)$(git branch --format='%(refname:short)')}")</code> 的意思是，将 <code class="language-plaintext highlighter-rouge">git branch --format='%(refname:short)'</code> 命令的输出按行分割后形成一个字符串数组，赋值给 <code class="language-plaintext highlighter-rouge">git_branches</code> 变量，这部分可以参考 <a href="https://unix.stackexchange.com/questions/29724/how-to-properly-collect-an-array-of-lines-in-zsh">How to properly collect an array of lines in zsh</a>。</p>
+
+<p>我的 zsh 配置都上传到了 <a href="https://github.com/mzlogin/config-files">https://github.com/mzlogin/config-files</a>，有需要可以参考下。</p>
+
+<h2 id="效果演示">效果演示</h2>
+
+<p><img src="/images/posts/shell/zsh-gmt-completion.gif" alt="" /></p>
+
+<h2 id="参考">参考</h2>
+
+<ul>
+  <li><a href="https://zsh.sourceforge.io/Doc/Release/Completion-System.html">Completion System</a></li>
+  <li><a href="https://unix.stackexchange.com/questions/29724/how-to-properly-collect-an-array-of-lines-in-zsh">How to properly collect an array of lines in zsh</a></li>
+</ul>
+
+:ET

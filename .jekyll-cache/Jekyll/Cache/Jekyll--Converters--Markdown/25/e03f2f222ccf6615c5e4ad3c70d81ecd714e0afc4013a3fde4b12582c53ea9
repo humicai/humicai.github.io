@@ -1,0 +1,50 @@
+I"�
+<p>之前与同事讨论接口性能问题时听他介绍了一种缓存设计思路，觉得不错，做个记录供以后参考。</p>
+
+<h2 id="场景">场景</h2>
+
+<p>假设有个以下格式的接口：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GET /api?keys={key1,key2,key3,...}&amp;types={1,2,3,...}
+</code></pre></div></div>
+
+<p>其中 keys 是业务主键列表，types 是想要取到的信息的类型。</p>
+
+<p>请求该接口需要返回业务主键列表对应的业务对象列表，对象里需要包含指定类型的信息。</p>
+
+<p>业务主键可能的取值较多，千万量级，type 取值范围为 1-10，可以任意组合，每种 type 对应到数据库是 1-N 张表，示意：</p>
+
+<p><img src="/images/posts/java/redis-cache-design.drawio.png" alt="" /></p>
+
+<p>现在设想这个接口遇到了性能瓶颈，打算添加 Redis 缓存来改善响应速度，应该如何设计？</p>
+
+<h2 id="设计思路">设计思路</h2>
+
+<p>方案一：</p>
+
+<p>最简单粗暴的方法是直接使用请求的所有参数作为缓存 key，请求的返回内容为 value。</p>
+
+<p>方案二：</p>
+
+<p>如果稍做一下思考，可能就会想到文首我提到的觉得不错的思路了：</p>
+
+<ol>
+  <li>使用 <code class="language-plaintext highlighter-rouge">业务主键:表名</code> 作为缓存 key，表名里对应的该业务主键的记录作为 value；</li>
+  <li>查询时，先根据查询参数 keys，以及 types 对应的表，得到所有 <code class="language-plaintext highlighter-rouge">key1:tb_1_1</code>、<code class="language-plaintext highlighter-rouge">key1:tb_1_2</code> 这样的组合，使用 Redis 的 mget 命令，批量取到所有缓存中存在的信息，剩下没有命中的，批量到数据库里查询到结果，并放入缓存；</li>
+  <li>在某个表的数据有更新时，只需刷新 <code class="language-plaintext highlighter-rouge">涉及业务主键:该表名</code> 的缓存，或令其失效即可。</li>
+</ol>
+
+<h2 id="小结">小结</h2>
+
+<p>在以上两种方案之间做评估和选择，考虑几个方面：</p>
+
+<ul>
+  <li>缓存命中率；</li>
+  <li>缓存数量、占用空间大小；</li>
+  <li>刷新缓存是否方便；</li>
+</ul>
+
+<p>稍作思考和计算，就会发现此场景下方案二的优势。</p>
+
+<p>另外，就是需要根据实际业务场景，如业务对象复杂度、读写次数比等，来评估合适的缓存数据的粒度和层次，是对应到某一级组合后的业务对象（缓存值对应存储 + 部分逻辑），还是最基本的数据库表/字段（存储的归存储，逻辑的归逻辑）。</p>
+:ET

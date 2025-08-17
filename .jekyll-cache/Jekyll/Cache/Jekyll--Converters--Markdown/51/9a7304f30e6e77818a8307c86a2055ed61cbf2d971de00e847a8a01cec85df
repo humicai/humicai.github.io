@@ -1,0 +1,135 @@
+I"9:<p>在小数据量场景下，如何优化模糊搜索体验？本文分享一个简单实用的方案，虽然有点“土”，但效果还不错。</p>
+
+<h2 id="场景">场景</h2>
+
+<p>假设有一张表 <code class="language-plaintext highlighter-rouge">t_course</code>，数据量在三到四位数，字段 <code class="language-plaintext highlighter-rouge">name</code> 需要支持模糊搜索。用普通的 <code class="language-plaintext highlighter-rouge">LIKE</code> 语句，比如：</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="n">id</span><span class="p">,</span> <span class="n">name</span> <span class="k">FROM</span> <span class="n">t_course</span> <span class="k">WHERE</span> <span class="n">name</span> <span class="k">LIKE</span> <span class="s1">'%2025数学高一下%'</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>结果却查不到 <code class="language-plaintext highlighter-rouge">2025年高一数学下学期</code>。这就很尴尬了，用户体验直接拉胯。</p>
+
+<h2 id="方案探索">方案探索</h2>
+
+<h3 id="1-mysql-全文索引">1. MySQL 全文索引</h3>
+
+<p>首先想到 MySQL 的全文索引，但要支持中文分词得改 <code class="language-plaintext highlighter-rouge">ngram_token_size</code> 配置，还得重启数据库。为了不动生产环境配置，果断放弃。</p>
+
+<h3 id="2-elasticsearch">2. Elasticsearch</h3>
+
+<p>接着想到 Elasticsearch，但对这么简单的场景来说，未免有点“杀鸡用牛刀”。于是继续寻找更轻量的方案。</p>
+
+<h3 id="3-自定义分词--mysql-instr">3. 自定义分词 + MySQL INSTR</h3>
+
+<p>最后想到一个“土办法”：先对用户输入进行分词，再用 MySQL 的 <code class="language-plaintext highlighter-rouge">INSTR</code> 函数匹配。简单粗暴，但很实用。</p>
+
+<p><img src="/images/posts/java/search-optimize-in-small-data.drawio.png" alt="" /></p>
+
+<h2 id="实现">实现</h2>
+
+<h3 id="分词工具">分词工具</h3>
+
+<p>一开始用了 <code class="language-plaintext highlighter-rouge">jcseg</code> 分词库，写了个工具类：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">JcSegUtils</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">SegmenterConfig</span> <span class="no">CONFIG</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SegmenterConfig</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">ADictionary</span> <span class="no">DIC</span> <span class="o">=</span> <span class="nc">DictionaryFactory</span><span class="o">.</span><span class="na">createSingletonDictionary</span><span class="o">(</span><span class="no">CONFIG</span><span class="o">);</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="nf">segment</span><span class="o">(</span><span class="nc">String</span> <span class="n">text</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">IOException</span> <span class="o">{</span>
+        <span class="nc">ISegment</span> <span class="n">seg</span> <span class="o">=</span> <span class="nc">ISegment</span><span class="o">.</span><span class="na">NLP</span><span class="o">.</span><span class="na">factory</span><span class="o">.</span><span class="na">create</span><span class="o">(</span><span class="no">CONFIG</span><span class="o">,</span> <span class="no">DIC</span><span class="o">);</span>
+        <span class="n">seg</span><span class="o">.</span><span class="na">reset</span><span class="o">(</span><span class="k">new</span> <span class="nc">StringReader</span><span class="o">(</span><span class="n">text</span><span class="o">));</span>
+        <span class="nc">IWord</span> <span class="n">word</span><span class="o">;</span>
+        <span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="n">result</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+        <span class="k">while</span> <span class="o">((</span><span class="n">word</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="na">next</span><span class="o">())</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">String</span> <span class="n">wordText</span> <span class="o">=</span> <span class="n">word</span><span class="o">.</span><span class="na">getValue</span><span class="o">();</span>
+            <span class="k">if</span> <span class="o">(</span><span class="nc">StringUtils</span><span class="o">.</span><span class="na">isNotBlank</span><span class="o">(</span><span class="n">wordText</span><span class="o">))</span> <span class="o">{</span>
+                <span class="n">result</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">wordText</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">result</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>本地测试一切正常，但部署到测试环境后，分词结果却变了！比如：</p>
+
+<ul>
+  <li>本地：<code class="language-plaintext highlighter-rouge">[2025, 数学, 高一, 下]</code></li>
+  <li>测试环境：<code class="language-plaintext highlighter-rouge">[2025, 数, 学, 高, 1, 下]</code></li>
+</ul>
+
+<p>原因是 <code class="language-plaintext highlighter-rouge">jcseg</code> 在 jar 包中加载默认配置和词库时出问题了。网上的解决方案大多是外置词库，但我懒得折腾，决定自己撸个简易分词工具。</p>
+
+<h3 id="简易分词工具">简易分词工具</h3>
+
+<p>最终实现如下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">WordSegmentationUtils</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="no">DICT</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">COURSE_SEARCH_KEYWORD_LIST</span> <span class="o">=</span> <span class="s">"数学,物理,化学,生物,地理,历史,政治,英语,语文,高中,高一,高二,高三"</span><span class="o">;</span>
+
+    <span class="kd">static</span> <span class="o">{</span>
+        <span class="no">DICT</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">2018</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">2099</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+            <span class="no">DICT</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="nc">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">i</span><span class="o">));</span>
+        <span class="o">}</span>
+        <span class="no">DICT</span><span class="o">.</span><span class="na">addAll</span><span class="o">(</span><span class="nc">Arrays</span><span class="o">.</span><span class="na">asList</span><span class="o">(</span><span class="no">COURSE_SEARCH_KEYWORD_LIST</span><span class="o">.</span><span class="na">split</span><span class="o">(</span><span class="s">","</span><span class="o">)));</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="nf">segment</span><span class="o">(</span><span class="nc">String</span> <span class="n">text</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="nc">StringUtils</span><span class="o">.</span><span class="na">isBlank</span><span class="o">(</span><span class="n">text</span><span class="o">))</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+        <span class="o">}</span>
+        <span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="n">segments</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+        <span class="n">segments</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">text</span><span class="o">);</span>
+        <span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">word</span> <span class="o">:</span> <span class="no">DICT</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">segments</span> <span class="o">=</span> <span class="n">segment</span><span class="o">(</span><span class="n">segments</span><span class="o">,</span> <span class="n">word</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">segments</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="kd">static</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="nf">segment</span><span class="o">(</span><span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="n">segments</span><span class="o">,</span> <span class="nc">String</span> <span class="n">word</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="n">newSegments</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+        <span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">segment</span> <span class="o">:</span> <span class="n">segments</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">segment</span><span class="o">.</span><span class="na">contains</span><span class="o">(</span><span class="n">word</span><span class="o">))</span> <span class="o">{</span>
+                <span class="n">newSegments</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">word</span><span class="o">);</span>
+                <span class="nc">String</span><span class="o">[]</span> <span class="n">split</span> <span class="o">=</span> <span class="n">segment</span><span class="o">.</span><span class="na">split</span><span class="o">(</span><span class="n">word</span><span class="o">);</span>
+                <span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">s</span> <span class="o">:</span> <span class="n">split</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">if</span> <span class="o">(</span><span class="nc">StringUtils</span><span class="o">.</span><span class="na">isNotBlank</span><span class="o">(</span><span class="n">s</span><span class="o">))</span> <span class="o">{</span>
+                        <span class="n">newSegments</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">s</span><span class="o">.</span><span class="na">trim</span><span class="o">());</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="n">newSegments</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">segment</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">newSegments</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>这个工具基于一个简单的词典 <code class="language-plaintext highlighter-rouge">DICT</code>，按词典中的词对输入文本进行分割。比如：</p>
+
+<ul>
+  <li>输入：<code class="language-plaintext highlighter-rouge">2025数学高一下</code></li>
+  <li>输出：<code class="language-plaintext highlighter-rouge">[2025, 数学, 高一, 下]</code></li>
+</ul>
+
+<h3 id="效果验证">效果验证</h3>
+
+<p>现在，无论用户输入以下哪种形式，都能成功匹配到 <code class="language-plaintext highlighter-rouge">2025年高一数学下学期</code>：</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">2025高一数学下</code></li>
+  <li><code class="language-plaintext highlighter-rouge">2025 高一 数学</code></li>
+  <li><code class="language-plaintext highlighter-rouge">数学高一2025</code></li>
+</ul>
+
+<h2 id="小结">小结</h2>
+
+<p>这个方案虽然简单，但在小数据量场景下，性能和体验都能满足需求，且实现成本低。如果遇到特殊情况，可以通过动态更新词典来解决。</p>
+
+<p>当然，这种“土办法”并不适合复杂场景。如果需求升级，可以再考虑 MySQL 全文索引或 Elasticsearch。</p>
+
+<p>最后，自己一个人负责开发和运维就是任性！如果有团队一起评审，这方案可能早就被否了吧……额，达摩克利斯之剑高悬。</p>
+:ET

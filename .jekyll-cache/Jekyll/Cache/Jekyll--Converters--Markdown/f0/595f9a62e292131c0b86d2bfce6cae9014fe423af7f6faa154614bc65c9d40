@@ -1,0 +1,62 @@
+I"Y	<p>前一阵发生过两次 Mac mini 与蓝牙鼠标断连的情况，都是通过借用别人的有线鼠标来重新连接的，终究不方便。</p>
+
+<p>后来就想着，能不能通过键盘来连接蓝牙鼠标呢？摸索了一番，找到了方法，在此记录一下。</p>
+
+<p>先上操作演示：</p>
+
+<p><img src="https://raw.githubusercontent.com/mzlogin/blog-assets/refs/heads/master/mac-match-bluetooth-mouse-by-keyboard.gif" alt="" /></p>
+
+<h2 id="前置知识">前置知识</h2>
+
+<p>看着上面的操作，是不是感觉 so easy？但实际上，我在操作过程中，一开始就遇到一个问题——焦点无法移动到设置面板右侧的按钮上。</p>
+
+<p>这时我们要先了解一个关键的设置开关，以及它对应的快捷键：</p>
+
+<p><img src="/images/posts/mac/mac-settings-keyboard-navigator.png" alt="" /></p>
+
+<p>该开关默认关闭，切换开关的默认快捷键是 <kbd>Ctrl + F7</kbd>。</p>
+
+<h2 id="通过键盘连接蓝牙鼠标的方法">通过键盘连接蓝牙鼠标的方法</h2>
+
+<ol>
+  <li>
+    <p>通过键盘操作，打开系统设置：</p>
+
+    <ul>
+      <li>
+        <p>按下 <kbd>Cmd + 空格</kbd>，调出 Spotlight 搜索框；</p>
+      </li>
+      <li>
+        <p>输入 <em>系统设置</em>，回车。</p>
+      </li>
+    </ul>
+  </li>
+  <li>
+    <p>通过键盘上下键，定位到 <em>蓝牙</em>；</p>
+  </li>
+  <li>
+    <p>操作蓝牙鼠标，使其进入配对模式；（一般是长按鼠标底部的配对键）</p>
+  </li>
+  <li>
+    <p>连续按下 <kbd>Tab</kbd> 键，定位到蓝牙鼠标对应设备的 <em>连接</em> 按钮；</p>
+
+    <p><strong>注意：</strong> 这里有可能发现，按 <kbd>Tab</kbd> 键焦点无法移动到设置面板右侧，这时就需用到我们前面提到的设置开关了，按下 <kbd>Ctrl + F7</kbd>，开启键盘导航功能，再按 <kbd>Tab</kbd> 键就可以移动焦点了。</p>
+  </li>
+  <li>
+    <p>按下 <kbd>Space</kbd> 键，连接蓝牙鼠标。</p>
+  </li>
+</ol>
+
+<p>大功告成！</p>
+
+<h2 id="其它思路">其它思路</h2>
+
+<p>除上了述方法，我搜索的过程中还看到有一些其它思路，比如：</p>
+
+<ul>
+  <li><kbd>Cmd + Option + F5</kbd> 打开辅助功能里的一些开关，然后通过键盘模拟鼠标操作；</li>
+  <li>喊 Siri 帮你重启蓝牙；</li>
+</ul>
+
+<p>可以按需尝试和使用。</p>
+:ET

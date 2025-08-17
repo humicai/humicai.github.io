@@ -1,0 +1,106 @@
+I"!<p>前几天有同学找我查一个空指针问题，Java 打印日志时，异常堆栈信息被吞了，导致定位不到出问题的地方。</p>
+
+<h2 id="现象">现象</h2>
+
+<p>捕获异常打印日志的代码类似这样：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">try</span> <span class="o">{</span>
+    <span class="c1">// ...</span>
+<span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">log</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"系统异常 customerCode:{},data:{}"</span><span class="o">,</span> <span class="n">customerCode</span><span class="o">,</span> <span class="n">data</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+    <span class="c1">// ...</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>查到的日志是这样的：</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>2023-06-26 11:11:11.111 ERROR 1 --- [pool-1-thread-1] c.mazhuang.service.impl.TestServiceImpl  : 系统异常 customerCode:123,data:{"name":"mazhuang","age":18}
+java.lang.NullPointerException: null
+</code></pre></div></div>
+
+<p>异常堆栈丢了。</p>
+
+<h2 id="分析">分析</h2>
+
+<p>在之前的一篇文章里已经验证过这种写法是可以正常打印异常和堆栈信息的：<a href="https://mazhuang.org/2023/05/10/can-this-log-print-work/">AI 自动补全的这句日志能正常打印吗？</a></p>
+
+<p>再三确认代码写法没问题，纳闷之下只好搜索了一下关键词「Java异常堆栈丢失」，发现了这篇文章：<a href="https://www.cnblogs.com/junejs/p/12686906.html">Java异常堆栈丢失的现象及解决方法</a>，这里面提到的问题与我们遇到的一样，而且给出了 Oracle 官方文档里的相关说明：</p>
+
+<blockquote>
+  <p><a href="https://www.oracle.com/java/technologies/javase/release-notes-introduction.html">https://www.oracle.com/java/technologies/javase/release-notes-introduction.html</a></p>
+
+  <p>The compiler in the server VM now provides correct stack backtraces for all “cold” built-in exceptions. For performance purposes, when such an exception is thrown a few times, the method may be recompiled. After recompilation, the compiler may choose a faster tactic using preallocated exceptions that do not provide a stack trace. To disable completely the use of preallocated exceptions, use this new flag: -XX:-OmitStackTraceInFastThrow.</p>
+</blockquote>
+
+<p>大致意思就是说，为了提高性能，JVM 会针对一些内建异常进行优化，在这些异常被某方法多次抛出时，JVM 可能会重编译该方法，这时候就可能会使用不提供堆栈信息的预分配异常。如果想要完全禁用预分配异常，可以使用 <code class="language-plaintext highlighter-rouge">-XX:-OmitStackTraceInFastThrow</code> 参数。</p>
+
+<p>了解到这个信息后，翻了翻从服务上次发版以来的这条日志，果然最早的十几次打印是有异常堆栈的，后面就没有了。</p>
+
+<h2 id="解决方案">解决方案</h2>
+
+<ul>
+  <li>回溯历史日志，找到正常打印的堆栈信息，定位和解决问题；</li>
+  <li>也可以考虑在 JVM 参数里加上 <code class="language-plaintext highlighter-rouge">-XX:-OmitStackTraceInFastThrow</code> 参数，禁用优化；</li>
+</ul>
+
+<h2 id="本地复现">本地复现</h2>
+
+<p>在本地写一个简单的程序复现一下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">StackTraceInFastThrowDemo</span> <span class="o">{</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="nc">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+        <span class="kt">boolean</span> <span class="n">flag</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="k">while</span> <span class="o">(</span><span class="n">flag</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="n">count</span><span class="o">++;</span>
+                <span class="n">npeTest</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="kt">int</span> <span class="n">stackTraceLength</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="na">getStackTrace</span><span class="o">().</span><span class="na">length</span><span class="o">;</span>
+                <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">printf</span><span class="o">(</span><span class="s">"count: %d, stacktrace length: %d%n"</span><span class="o">,</span> <span class="n">count</span><span class="o">,</span> <span class="n">stackTraceLength</span><span class="o">);</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">stackTraceLength</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">flag</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">npeTest</span><span class="o">(</span><span class="nc">Integer</span> <span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">i</span><span class="o">.</span><span class="na">toString</span><span class="o">());</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>不添加 <code class="language-plaintext highlighter-rouge">-XX:-OmitStackTraceInFastThrow</code> 作为 JVM 参数时，运行结果如下：</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+count: 5783, stacktrace length: 2
+count: 5784, stacktrace length: 2
+count: 5785, stacktrace length: 0
+
+Process finished with exit code 0
+</code></pre></div></div>
+
+<p>在我本机一般运行五六千次后，会出现异常堆栈丢失的情况。</p>
+
+<p>添加 <code class="language-plaintext highlighter-rouge">-XX:-OmitStackTraceInFastThrow</code> 作为 JVM 参数时，运行结果如下：</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+count: 3146938, stacktrace length: 2
+count: 3146939, stacktrace length: 2
+count: 3146940, stacktrace length: 
+Process finished with exit code 137 (interrupted by signal 9: SIGKILL)
+</code></pre></div></div>
+
+<p>运行了几百万次也不会出现异常堆栈丢失的情况，手动终止程序。</p>
+
+<p>完整源码见：<a href="https://github.com/mzlogin/java-notes/blob/master/src/org/mazhuang/StackTraceInFastThrowDemo.java">https://github.com/mzlogin/java-notes/blob/master/src/org/mazhuang/StackTraceInFastThrowDemo.java</a></p>
+
+<h2 id="参考">参考</h2>
+
+<ul>
+  <li><a href="https://www.cnblogs.com/junejs/p/12686906.html">https://www.cnblogs.com/junejs/p/12686906.html</a></li>
+  <li><a href="https://www.oracle.com/java/technologies/javase/release-notes-introduction.html">https://www.oracle.com/java/technologies/javase/release-notes-introduction.html</a></li>
+</ul>
+
+:ET

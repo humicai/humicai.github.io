@@ -1,0 +1,79 @@
+I"c<p>在包含视频播放功能的 App 中，一种常见的交互是在播放器界面的左侧上下滑动调节屏幕亮度，右侧上下滑动调节音量。我们的 iOS App 里也是这样设计的，但最近在测试过程中，发现亮度调节不生效了。</p>
+
+<h2 id="摸索之路">摸索之路</h2>
+
+<p>代码里面调节亮度的实现是这样的：</p>
+
+<div class="language-objc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">setBrightnessUp</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">UIScreen</span> <span class="nf">mainScreen</span><span class="p">].</span><span class="n">brightness</span> <span class="o">&gt;=</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="p">[</span><span class="n">UIScreen</span> <span class="nf">mainScreen</span><span class="p">].</span><span class="n">brightness</span> <span class="o">+=</span> <span class="mi">0</span><span class="p">.</span><span class="mo">01</span><span class="p">;</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+
+<span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">setBrightnessDown</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">UIScreen</span> <span class="nf">mainScreen</span><span class="p">].</span><span class="n">brightness</span> <span class="o">&lt;=</span><span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="p">[</span><span class="n">UIScreen</span> <span class="nf">mainScreen</span><span class="p">].</span><span class="n">brightness</span> <span class="o">-=</span> <span class="mi">0</span><span class="p">.</span><span class="mo">01</span><span class="p">;</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>这个实现在较早之前是没有问题的，那我首先想到比较可能是因为系统的更新，对这个 API 做了变更。于是先查阅了 <a href="https://developer.apple.com/documentation/uikit/uiscreen/brightness?language=objc">UIKit/UIScreen/brightness 的官方文档</a>，里面只提到了 brightness 属性只在 main screen 上被支持，取值范围是 [0.0, 1.0]，以及亮度调节后，直到锁屏后才会失效——即使用户在锁屏之前已经关闭了 App。并没有看到什么值得特别留意的。</p>
+
+<p>然后继续看代码里的 UIScreen.mainScreen，这个属性被标记为：</p>
+
+<div class="language-objc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">API_DEPRECATED</span><span class="p">(</span><span class="s">"Use a UIScreen instance found through context instead: i.e, view.window.windowScene.screen"</span><span class="p">,</span> <span class="n">ios</span><span class="p">(</span><span class="mi">2</span><span class="p">.</span><span class="mi">0</span><span class="p">,</span> <span class="n">API_TO_BE_DEPRECATED</span><span class="p">),</span> <span class="n">visionos</span><span class="p">(</span><span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="p">,</span> <span class="n">API_TO_BE_DEPRECATED</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p>但当前在我使用的 SDK 18.2 版本中，这个属性应仍可正常使用。</p>
+
+<p>在 Google 和 StackOverflow 找了一圈，大家讨论亮度调节不生效主要集中以下方面：</p>
+
+<ul>
+  <li><a href="https://stackoverflow.com/questions/54229300/not-able-to-set-brightness-when-app-enter-in-background-can-any-one-have-any-id">后台调用不生效；</a></li>
+  <li><a href="https://stackoverflow.com/questions/12362885/ios-uiscreen-setbrightness-doesnt-work">模拟器上调节不生效；</a></li>
+  <li><a href="https://stackoverflow.com/questions/61765014/why-cannot-i-set-uiscreen-main-brightness">viewDidLoad and viewWillAppear 中调用不生效；</a></li>
+  <li>如何优雅地在 App 退出后恢复原有亮度；</li>
+</ul>
+
+<p>也没有找到什么能匹配我的场景的解决方案。</p>
+
+<p>加了一些日志，在调节亮度前后分别打印了 brightness 的值，发现它在调用 setBrightness 方法后并没有发生变化，也没有报错和告警，看起来就像是这个方法根本没有被调用一样。</p>
+
+<p>也做了一些其它尝试，比如把调整亮度的代码显式调度到主线程、使用 <code class="language-plaintext highlighter-rouge">view.window.windowScene.screen</code> 替代 <code class="language-plaintext highlighter-rouge">UIScreen.mainScreen</code> 等，但都没有效果。</p>
+
+<p>无奈之下，我问了 GitHub Copilot 一嘴，它的回答是这样的：</p>
+
+<p><img src="/images/posts/ios/copilot-ios-setbrightness-not-work.png" alt="" /></p>
+
+<p>我按它的建议检查了权限，确认了不存在权限问题。</p>
+
+<p>有点绝望之际，看到它提供的代码里调整亮度的粒度是 0.1，而我的代码里是 0.01，<strong>于是我尝试将粒度改为 0.1，然后奇迹发生了，亮度调节生效了</strong>。</p>
+
+<p>这就有点匪夷所思了……于是我又尝试了其它的粒度值，结果如下：</p>
+
+<ul>
+  <li>0.01，不生效；</li>
+  <li>0.02，不生效；</li>
+  <li>0.03 及以上，生效，但是从输出可以看到，<strong>实际调整后的亮度值都是 0.05 的倍数，即 0.05、0.1、0.15、0.2……</strong>，而不是 0.03、0.06、0.09、0.12……</li>
+</ul>
+
+<p>我找到安装了以前老版本 App 的一个老平板（iOS 10.3.3），在上面测试了一下，发现在这个版本上，0.01 的调节粒度是可以生效的。</p>
+
+<p><strong>也就是说，在 iOS (10.3.3, 18.2) 之间靠近后者的某个版本上，[UIScreen mainScreen].brightness 的调节粒度发生了变化，由 0.01 变为了 0.05。</strong></p>
+
+<p>至此破案了，顺便吐槽一下，官方文档里对此毫无提及，实在是……略坑。</p>
+
+<h2 id="参考">参考</h2>
+
+<ul>
+  <li><a href="https://developer.apple.com/documentation/uikit/uiscreen/brightness?language=objc">https://developer.apple.com/documentation/uikit/uiscreen/brightness?language=objc</a></li>
+  <li><a href="https://stackoverflow.com/questions/54229300/not-able-to-set-brightness-when-app-enter-in-background-can-any-one-have-any-id">https://stackoverflow.com/questions/54229300/not-able-to-set-brightness-when-app-enter-in-background-can-any-one-have-any-id</a></li>
+  <li><a href="https://stackoverflow.com/questions/12362885/ios-uiscreen-setbrightness-doesnt-work">https://stackoverflow.com/questions/12362885/ios-uiscreen-setbrightness-doesnt-work</a></li>
+  <li><a href="https://stackoverflow.com/questions/61765014/why-cannot-i-set-uiscreen-main-brightness">https://stackoverflow.com/questions/61765014/why-cannot-i-set-uiscreen-main-brightness</a></li>
+</ul>
+
+:ET

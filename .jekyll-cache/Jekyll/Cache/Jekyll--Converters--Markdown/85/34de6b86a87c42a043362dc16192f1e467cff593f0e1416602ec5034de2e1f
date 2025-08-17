@@ -1,0 +1,2 @@
+I"�<p>先说结论：如果有两个或多个 FileProvider 的 authorities 重名，那么只有合并后的 AndroidManifest.xml 文件里，排在最前面的那个配置会生效。</p>
+:ET

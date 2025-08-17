@@ -1,0 +1,132 @@
+I"<p>看到公众号沉默王二发的一篇文章 <a href="https://mp.weixin.qq.com/s/bnHpkDMzUyIFzmGk9r4ByA">《GitHub赚了211美刀后的感触》</a>，用自己的 GitHub 账号尝试了一下，1500 元现金到账，有兴趣的朋友们可以一试。</p>
+
+<h2 id="省流">省流</h2>
+
+<p>Starknet 基金会启动了第一轮 Starknet 供应计划，将向近 130 万个地址分发超过 7 亿个 Starknet 代币（STRK），其中有 2.1% 分发给开源开发者。STRK 可以理解为一种数字货币，领取到后可以通过交易转换成现金。</p>
+
+<p>可以通过 <a href="https://provisions.starknet.io">https://provisions.starknet.io</a> 网站查询是否有资格领取 STRK。</p>
+
+<blockquote>
+  <p>Update 2024/02/29 ref <a href="https://www.guozaoke.com/t/107113#reply7">https://www.guozaoke.com/t/107113#reply7</a></p>
+
+  <p>符合条件的 GitHub 用户可以在下面两个文件之一搜到自己的 ID：</p>
+
+  <ul>
+    <li><a href="https://raw.githubusercontent.com/starknet-io/provisions-data/main/github/github-0.json">https://raw.githubusercontent.com/starknet-io/provisions-data/main/github/github-0.json</a></li>
+    <li><a href="https://raw.githubusercontent.com/starknet-io/provisions-data/main/github/github-1.json">https://raw.githubusercontent.com/starknet-io/provisions-data/main/github/github-1.json</a></li>
+  </ul>
+</blockquote>
+
+<p>如果发现有资格，可以继续阅读；如果没有资格，就不用浪费时间继续看了。另外，可以推荐给你在 GitHub 活跃的朋友试试。</p>
+
+<h2 id="领取资格查询">领取资格查询</h2>
+
+<ol>
+  <li>
+    <p>打开 <a href="https://provisions.starknet.io/">https://provisions.starknet.io/</a> 网站；</p>
+  </li>
+  <li>
+    <p>往下翻，找到 Eligibility check only 链接，点击打开：</p>
+
+    <p><img src="/images/posts/github/eligibility-check.png" alt="eligibility check" /></p>
+  </li>
+  <li>
+    <p>切换到 GitHub，输入 GitHub 用户名，点击 Go：</p>
+
+    <p><img src="/images/posts/github/github-go.png" alt="github-go" /></p>
+  </li>
+  <li>
+    <p>如果有资格，会看到如下界面：</p>
+
+    <p><img src="/images/posts/github/has-eligibility.png" alt="has-eligibility" /></p>
+
+    <p>点 See your allocation，会看到能领取的 STRK 数量：</p>
+
+    <p><img src="/images/posts/github/strk-count.png" alt="strk-count" /></p>
+  </li>
+</ol>
+
+<h2 id="领取-strk">领取 STRK</h2>
+
+<ol>
+  <li>
+    <p>在上面领取资格查询的最后一步点击 Disconnect，会回到第 2 步界面，点击 Claim STRK；</p>
+  </li>
+  <li>
+    <p>勾选，Confirm：</p>
+
+    <p><img src="/images/posts/github/terms-of-use-confirm.png" alt="" /></p>
+  </li>
+  <li>
+    <p>选择钱包，我这里用的 Argent X，根据提示下载安装浏览器插件，生成一个钱包地址：</p>
+
+    <p><img src="/images/posts/github/argent-x.png" alt="" /></p>
+  </li>
+  <li>
+    <p>选择 GitHub，Sign in：</p>
+
+    <p><img src="/images/posts/github/github-sign-in.png" alt="" /></p>
+  </li>
+  <li>
+    <p>按提示操作，看到如下界面就是领取成功了：</p>
+
+    <p><img src="/images/posts/github/token-claimed.png" alt="" /></p>
+  </li>
+</ol>
+
+<h2 id="转换成现金">转换成现金</h2>
+
+<ol>
+  <li>
+    <p>注册一个数字货币交易所账户，建议选择头部交易所，如币安、欧易，我使用的是 <a href="https://www.okx.com/cn/">欧易（OKX）</a>；</p>
+  </li>
+  <li>
+    <p>在 OKX 的资金账户里 充币-选择 STRK-生成充币地址，选择将资金充入交易账户，复制充币地址：</p>
+
+    <p><img src="/images/posts/github/balance-recharge.png" alt="" /></p>
+
+    <p><img src="/images/posts/github/recharge-address.png" alt="" /></p>
+  </li>
+  <li>
+    <p>打开之前安装的 Argent X 钱包浏览器插件，点击 Send，输入充币地址，填入 STRK 数量（可以点击 Max 选择最大转出数量），点击 Review send：</p>
+
+    <p><img src="/images/posts/github/argent-x-send.png" alt="" /></p>
+  </li>
+  <li>
+    <p>稍等一小会，刷新 OKX 应该就能看到 STRK 充进来了，在交易菜单里找到 币币，搜索 STRK/USDT，点击后输入数量，市价卖出：</p>
+
+    <p><img src="/images/posts/github/strk-to-usdt.png" alt="" /></p>
+  </li>
+  <li>
+    <p>资金划转，将 USDT 从 交易账户 转到 资金账户；</p>
+  </li>
+  <li>
+    <p>买币-快捷买币-出售，USDT to CNY，全部出售，支付宝收款，支付宝到账后确认并放币即可，我最终到账 1533.8 元人民币。</p>
+
+    <p><img src="/images/posts/github/take-in.png" alt="" /></p>
+  </li>
+</ol>
+
+<h2 id="小结">小结</h2>
+
+<p>天上不会掉馅饼，但是定向投放的合法福利，我们要接住！</p>
+
+<p>类似的空投，2020 年初也经历过一次，当时也有记录：<a href="https://mp.weixin.qq.com/s/44v5uw4RnPSgsskgzYuTOg">GitHub 用户专属福利，实际到账 3K+，Namebase Airdrop</a>，当时是将 HNS 转换到 BTC 然后提现的，本次操作时看了下，BTC 的价格相对当时翻了约五倍，所以……将数字货币留着不提现，等增值也是一种思路。</p>
+
+<p>在 Starknet 的网站上，有提到空投给 GitHub 用户的原因：</p>
+
+<blockquote>
+  <p>In addition, STRK will be distributed to those who helped to develop the larger ecosystem of open-source software and infrastructure, as their work has become a public good and contributed to the emergence of a more open and inclusive web.</p>
+</blockquote>
+
+<p>所以如果你符合领取资格，你必然也曾为构建有影响力的开源软件和基础设施贡献过力量，这是你应得的！</p>
+
+<h2 id="参考链接">参考链接</h2>
+
+<ul>
+  <li><a href="https://www.starknet.io/en/content/starknet-provisions-program">https://www.starknet.io/en/content/starknet-provisions-program</a></li>
+  <li><a href="https://provisions.starknet.io">https://provisions.starknet.io</a></li>
+  <li><a href="https://zhuanlan.zhihu.com/p/683415610">https://zhuanlan.zhihu.com/p/683415610</a></li>
+  <li><a href="https://mp.weixin.qq.com/s/bnHpkDMzUyIFzmGk9r4ByA">https://mp.weixin.qq.com/s/bnHpkDMzUyIFzmGk9r4ByA</a></li>
+</ul>
+:ET

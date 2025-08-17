@@ -1,0 +1,66 @@
+I"�<p>前面一篇文章 <a href="https://mp.weixin.qq.com/s?__biz=MzIwMDA3ODQzNA==&amp;mid=2459863533&amp;idx=1&amp;sn=877a0ddeee256b3d20cb3823e16d16a0&amp;chksm=81e88ce0b69f05f6b685d8a37ee6a990a92c0622490d1b57bb002198fbd6e27715490d783c2d&amp;token=1959625383&amp;lang=zh_CN#rd">读书｜程序员如何传书到 Kindle</a> 介绍了我最喜欢的通过 WiFi 向 Kindle 传书的方法，这篇文章介绍一下我是如何管理 Kindle 屏保图片的。</p>
+
+<p>作为一个爱折腾的人，除了阅读，我也尝试过 Kindle 的各种玩法，其中一项就是自定义屏保图片。每次拿起设备时，都能看到自己喜欢的屏保图片，开始阅读的心情也会变得愉悦。</p>
+
+<p><img src="/images/posts/kindle/screensavers.png" alt="" /></p>
+
+<p>更换 Kindle 屏保常用的方式是使用 ScreenSavers Hack 插件，我也是用它，但管理屏保图片并不方便，每当想要更换图片时，需要通过 USB 或者其它方式拷贝图片到 Kindle 的特定目录下，并需要使用特定的连续数字命名规则才能生效，这对于想要经常更换图片的人来说，是一件很麻烦的事。</p>
+
+<p>于是我设计了这样一个工作流来解决这个问题：</p>
+
+<p><img src="/images/posts/kindle/kindle-screensavers-workflow.drawio.png" alt="" /></p>
+
+<p>概括一下就是三步走：</p>
+
+<p>一、在电脑上制作和整理好屏保图片；</p>
+
+<p>二、使用 Git 提交到 GitHub；</p>
+
+<p>三、在 Kindle 上用插件一键同步。</p>
+
+<p>对应最后一步，我自制了一款 Kindle 插件，来实现在 Kindle 上一键从 GitHub 同步屏保图片的功能。</p>
+
+<p>运行截图：</p>
+
+<p><img src="/images/posts/kindle/kual-screensaver-sync.png" alt="" /></p>
+
+<p>它的同步逻辑：</p>
+
+<ol>
+  <li>
+    <p>删除本地有，GitHub 上没有的屏保图片；</p>
+  </li>
+  <li>
+    <p>下载远程有，本地没有的屏保图片；</p>
+  </li>
+  <li>
+    <p>如果一张屏保图片本地和远程的 md5 值不一样，本地文件将被远程文件覆盖。</p>
+  </li>
+</ol>
+
+<p>插件项目地址：<a href="https://github.com/mzlogin/kual-screensaver-sync">https://github.com/mzlogin/kual-screensaver-sync</a></p>
+
+<p>我的屏保图片管理项目地址：<a href="https://github.com/mzlogin/kindle-paperwhite-screensavers">https://github.com/mzlogin/kindle-paperwhite-screensavers</a></p>
+
+<p>插件的详细安装、使用方法可以参考插件项目的 README，在此不做赘述。</p>
+
+<p>以上管理方式的好处有：</p>
+
+<ul>
+  <li>
+    <p>通过 Git 管理，可以在需要的时候回溯历史；</p>
+  </li>
+  <li>
+    <p>整个过程无需使用 USB 线缆，Kindle 和电脑也不受地理位置和局域网限制；</p>
+  </li>
+  <li>
+    <p>增量按需更新；</p>
+  </li>
+  <li>
+    <p>甚至可以多人合作、相互很方便的分享屏保图片。</p>
+  </li>
+</ul>
+
+<p>如果你也对这样一种管理 Kindle 屏保图片的方式感兴趣，可以参考我的项目，自己动手制作和使用起来。</p>
+
+:ET

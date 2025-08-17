@@ -1,0 +1,61 @@
+I"~<p>最近开始一个人负责整个项目的全栈开发和维护，工作中没了和同事交叉 code review 的环节，所以就打算，如果工作中遇到一些比较典型的代码，包括好味道和坏味道，就拿出来分析下，与大家一起交流，作为另一种形式的「交叉 review」。</p>
+
+<p>这天遇到这样一个问题：在 Android 手机上复制 assets 里的文件夹到手机里，实际并没有拷贝完成，但代码总是显示成功，看了下代码，使用的是阿里云播放器 Android SDK 的 Demo 里的一个工具类。</p>
+
+<p>工具类里的相关代码经过简化后示意如下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Commen</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="nc">Commen</span> <span class="n">instance</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">volatile</span> <span class="kt">boolean</span> <span class="n">isSuccess</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="nc">Commen</span> <span class="nf">getInstance</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// some code here，单例控制，返回 instance</span>
+        <span class="c1">// ...</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">copyAssetsToDst</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">,</span> <span class="nc">String</span> <span class="n">srcPath</span><span class="o">,</span> <span class="nc">String</span> <span class="n">dstPath</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="nc">String</span><span class="o">[]</span> <span class="n">fileNames</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getAssets</span><span class="o">().</span><span class="na">list</span><span class="o">(</span><span class="n">srcPath</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">fileNames</span><span class="o">.</span><span class="na">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">fileName</span> <span class="o">:</span> <span class="n">fileNames</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="c1">// 文件夹，递归调用</span>
+                    <span class="n">copyAssetsToDst</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">srcPath</span> <span class="o">+</span> <span class="nc">File</span><span class="o">.</span><span class="na">separator</span> <span class="o">+</span> <span class="n">fileName</span><span class="o">,</span>
+                            <span class="n">dstPath</span> <span class="o">+</span> <span class="nc">File</span><span class="o">.</span><span class="na">separator</span> <span class="o">+</span> <span class="n">fileName</span><span class="o">);</span>
+                <span class="o">}</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="c1">// some code here，单个文件拷贝</span>
+                <span class="c1">// ...</span>
+            <span class="o">}</span>
+            <span class="n">isSuccess</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">isSuccess</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>这段代码使用起来若不谨慎，至少存在以下问题：</p>
+
+<ol>
+  <li>
+    <p>线程安全问题：该类是一个单例类，代码中的 <code class="language-plaintext highlighter-rouge">isSuccess</code> 相当于是一个全局变量，如果多个线程同时调用 <code class="language-plaintext highlighter-rouge">copyAssetsToDst</code> 方法，会出现线程安全问题，导致 <code class="language-plaintext highlighter-rouge">isSuccess</code> 的值被交叉覆盖，不可预期；</p>
+  </li>
+  <li>
+    <p>结果正确性：因为 Exception 全都被 catch 住了，这样如果 srcPath 是一个文件夹，递归调用方法自身后，最外层总是会将 <code class="language-plaintext highlighter-rouge">isSuccess</code> 设置为 true，导致最终结果总是显示成功，而实际结果未知。</p>
+  </li>
+</ol>
+
+<p>如果由我来写这段代码，我会做这样的修改：</p>
+
+<ul>
+  <li>
+    <p>将类改为工具类，公开的方法都是静态方法，不需要单例控制；</p>
+  </li>
+  <li>
+    <p>方法执行是否成功，由返回值、是否抛出异常来表示，不使用成员变量记录；</p>
+  </li>
+  <li>
+    <p>拷贝过程中，记录拷贝成功的文件列表，如果最终失败，将中间生成的文件做清理。</p>
+  </li>
+</ul>
+:ET

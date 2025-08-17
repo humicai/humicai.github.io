@@ -1,0 +1,169 @@
+I"J?<p>最近在一个 Android 项目里遇到一个偶现的 java.util.ConcurrentModificationException 异常导致的崩溃，经过排查，导致异常的代码大概是这样的：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">private</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">XxxListener</span><span class="o">&gt;</span> <span class="n">listeners</span><span class="o">;</span>
+
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">foo</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">XxxListener</span> <span class="n">listener</span> <span class="o">:</span> <span class="n">listeners</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">listener</span><span class="o">.</span><span class="na">doSomething</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">XxxListener</span> <span class="o">{</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">doSomething</span><span class="o">()</span> <span class="o">{</span>
+        <span class="c1">// some code here</span>
+        <span class="k">if</span> <span class="o">(...)</span> <span class="o">{</span>
+            <span class="n">listeners</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>把函数调用展开一下就等效于：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="o">(</span><span class="nc">XxxListener</span> <span class="n">listener</span> <span class="o">:</span> <span class="n">listeners</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// some code here</span>
+    <span class="k">if</span> <span class="o">(...)</span> <span class="o">{</span>
+        <span class="n">listeners</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">listener</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>这个异常之所以不是必现，是因为 <code class="language-plaintext highlighter-rouge">listeners.remove</code> 不是总被执行到。</p>
+
+<p>我先直接说一下正确的写法吧，就是使用迭代器的写法：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Iterator</span><span class="o">&lt;</span><span class="nc">XxxListener</span><span class="o">&gt;</span> <span class="n">iterator</span> <span class="o">=</span> <span class="n">listeners</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span>
+<span class="k">while</span> <span class="o">(</span><span class="n">iterator</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span> <span class="o">{</span>
+    <span class="nc">XxxListener</span> <span class="n">listener</span> <span class="o">=</span> <span class="n">iterator</span><span class="o">.</span><span class="na">next</span><span class="o">();</span>
+    <span class="c1">// some code here</span>
+    <span class="k">if</span> <span class="o">(...)</span> <span class="o">{</span>
+        <span class="n">iterator</span><span class="o">.</span><span class="na">remove</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>然后再进一步分析。</p>
+
+<h2 id="源码分析">源码分析</h2>
+
+<p>先来从源码层面分析下上述 java.util.ConcurrentModificationException 异常是如何抛出的。</p>
+
+<p>写一段简单的测试源码：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">List</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="n">list</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+<span class="n">list</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">"Hello"</span><span class="o">);</span>
+<span class="n">list</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">"World"</span><span class="o">);</span>
+<span class="n">list</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">"Hi"</span><span class="o">);</span>
+
+<span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">str</span> <span class="o">:</span> <span class="n">list</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">list</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">str</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>执行抛出异常：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Exception in thread "main" java.util.ConcurrentModificationException
+	at java.util.ArrayList$Itr.checkForComodification(ArrayList.java:911)
+	at java.util.ArrayList$Itr.next(ArrayList.java:861)
+</code></pre></div></div>
+
+<p>由此可以推测，<code class="language-plaintext highlighter-rouge">for (String str : list)</code> 这种写法实际只是一个语法糖，编译器会将其转换为迭代器的写法：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Iterator</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="n">iterator</span> <span class="o">=</span> <span class="n">list</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span>
+<span class="k">while</span> <span class="o">(</span><span class="n">iterator</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span> <span class="o">{</span>
+    <span class="nc">String</span> <span class="n">str</span> <span class="o">=</span> <span class="n">iterator</span><span class="o">.</span><span class="na">next</span><span class="o">();</span>
+    <span class="c1">// do something</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>这可以从反编译后的字节码得到验证：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>36: invokeinterface #8,  1            // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+41: astore_2
+42: aload_2
+43: invokeinterface #9,  1            // InterfaceMethod java/util/Iterator.hasNext:()Z
+48: ifeq          72
+51: aload_2
+52: invokeinterface #10,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+57: checkcast     #11                 // class java/lang/String
+60: astore_3
+61: aload_1
+62: aload_3
+63: invokeinterface #12,  2           // InterfaceMethod java/util/List.remove:(Ljava/lang/Object;)Z
+</code></pre></div></div>
+
+<p>那么，<code class="language-plaintext highlighter-rouge">iterator.next()</code> 里发生了什么导致了异常的抛出呢？ArrayList$Itr 类的源码如下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code> <span class="kd">private</span> <span class="kd">class</span> <span class="nc">Itr</span> <span class="kd">implements</span> <span class="nc">Iterator</span><span class="o">&lt;</span><span class="no">E</span><span class="o">&gt;</span> <span class="o">{</span>
+    <span class="kt">int</span> <span class="n">cursor</span><span class="o">;</span>       <span class="c1">// index of next element to return</span>
+    <span class="kt">int</span> <span class="n">lastRet</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="o">;</span> <span class="c1">// index of last element returned; -1 if no such</span>
+    <span class="kt">int</span> <span class="n">expectedModCount</span> <span class="o">=</span> <span class="n">modCount</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="no">E</span> <span class="nf">next</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">checkForComodification</span><span class="o">();</span>
+        <span class="c1">// ...</span>
+    <span class="o">}</span>
+
+    <span class="kd">final</span> <span class="kt">void</span> <span class="nf">checkForComodification</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">modCount</span> <span class="o">!=</span> <span class="n">expectedModCount</span><span class="o">)</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="c1">// ...</span>
+ <span class="o">}</span>
+</code></pre></div></div>
+
+<p>其中 <code class="language-plaintext highlighter-rouge">modCount</code> 是 ArrayList 类的成员，表示对 ArrayList 进行增删改的次数。<code class="language-plaintext highlighter-rouge">expectedModCount</code> 是 ArrayList$Itr 类的成员，初始值是迭代器创建时 ArrayList 的 <code class="language-plaintext highlighter-rouge">modCount</code> 的值。在每次调用 <code class="language-plaintext highlighter-rouge">next()</code> 时，都会检查 <code class="language-plaintext highlighter-rouge">modCount</code> 是否等于 <code class="language-plaintext highlighter-rouge">expectedModCount</code>，如果不等则抛出异常。</p>
+
+<p>那为什么 <code class="language-plaintext highlighter-rouge">list.remove</code> 会导致 <code class="language-plaintext highlighter-rouge">modCount</code> 的值不等于 <code class="language-plaintext highlighter-rouge">expectedModCount</code>，而 <code class="language-plaintext highlighter-rouge">iterator.remove</code> 不会呢？</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// ArrayList 的 remove 方法</span>
+<span class="kd">public</span> <span class="no">E</span> <span class="nf">remove</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">rangeCheck</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+
+    <span class="n">modCount</span><span class="o">++;</span>
+    <span class="no">E</span> <span class="n">oldValue</span> <span class="o">=</span> <span class="n">elementData</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+
+    <span class="kt">int</span> <span class="n">numMoved</span> <span class="o">=</span> <span class="n">size</span> <span class="o">-</span> <span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">numMoved</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elementData</span><span class="o">,</span> <span class="n">index</span><span class="o">+</span><span class="mi">1</span><span class="o">,</span> <span class="n">elementData</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span>
+                            <span class="n">numMoved</span><span class="o">);</span>
+    <span class="n">elementData</span><span class="o">[--</span><span class="n">size</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span> <span class="c1">// clear to let GC do its work</span>
+
+    <span class="k">return</span> <span class="n">oldValue</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// ArrayList$Itr 的 remove 方法</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">remove</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">lastRet</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">();</span>
+    <span class="n">checkForComodification</span><span class="o">();</span>
+
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="nc">ArrayList</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">lastRet</span><span class="o">);</span>
+        <span class="c1">// 注意这三行</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="n">lastRet</span><span class="o">;</span>
+        <span class="n">lastRet</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="o">;</span>
+        <span class="n">expectedModCount</span> <span class="o">=</span> <span class="n">modCount</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">IndexOutOfBoundsException</span> <span class="n">ex</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>可以看到 <code class="language-plaintext highlighter-rouge">ArrayList#remove</code> 里 <code class="language-plaintext highlighter-rouge">modCount++</code>，但并不会修改到 Itr 的 <code class="language-plaintext highlighter-rouge">expectedModCount</code>——它们当然就不相等了。而 <code class="language-plaintext highlighter-rouge">ArrayList$Itr#remove</code> 在先调用了 <code class="language-plaintext highlighter-rouge">ArrayList#remove</code> 后，又将 <code class="language-plaintext highlighter-rouge">modCount</code> 的最新值赋给了 <code class="language-plaintext highlighter-rouge">modCount</code>，这样就保证了 <code class="language-plaintext highlighter-rouge">modCount</code> 和 <code class="language-plaintext highlighter-rouge">expectedModCount</code> 的一致性。</p>
+
+<p>同时，<code class="language-plaintext highlighter-rouge">ArrayList$Itr#remove</code> 里还有一个 <code class="language-plaintext highlighter-rouge">cursor = lastRet</code>，实际上是将迭代器的游标做了修正，前移一位，以实现后续调用 <code class="language-plaintext highlighter-rouge">next()</code> 的行为正确。</p>
+
+<h2 id="小结">小结</h2>
+
+<blockquote>
+  <p>源码面前，了无秘密。</p>
+</blockquote>
+
+<ul>
+  <li>如果需要在遍历 List 时删除元素，应使用迭代器的写法，即 <code class="language-plaintext highlighter-rouge">iterator.remove()</code>；</li>
+  <li>在非遍历场景下，使用 <code class="language-plaintext highlighter-rouge">ArrayList#remove</code> 也没什么问题——同理，即使是遍历场景下，使用 <code class="language-plaintext highlighter-rouge">ArrayList#remove</code> 后马上 break 也 OK；</li>
+  <li>如果遍历时做的事情不多，<code class="language-plaintext highlighter-rouge">Collection#removeIf</code> 方法也是一个不错的选择（实际也是上述迭代器写法的封装）。</li>
+</ul>
+:ET

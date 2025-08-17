@@ -1,0 +1,2 @@
+I"J<p>之前写过<a href="https://mp.weixin.qq.com/s/kMRkQ6j-ipet85si-rbfyw">《Android｜集成 slf4j + logback 作为日志框架》</a>，最近在给手上的另外一个 Android 项目添加 logback 日志框架时，遇到一个导致无法输出日志到文件的问题，也耽误了不少时间，这里记录一下。</p>
+:ET

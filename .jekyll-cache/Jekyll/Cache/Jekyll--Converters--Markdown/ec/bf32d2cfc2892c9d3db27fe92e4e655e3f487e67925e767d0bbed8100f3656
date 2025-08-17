@@ -1,0 +1,125 @@
+I"�0<p>开局上来，我们先看看问题场景的示例代码：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="nc">Page</span><span class="o">&lt;</span><span class="nc">Xxx</span><span class="o">&gt;</span> <span class="nf">queryXxxList</span><span class="o">(</span><span class="nc">XxxPageReq</span> <span class="n">req</span><span class="o">)</span> <span class="o">{</span>
+
+    <span class="c1">// some code here</span>
+
+    <span class="c1">// 查询一，得到一个结果集，作为查询二的条件</span>
+    <span class="nc">List</span><span class="o">&lt;</span><span class="nc">Long</span><span class="o">&gt;</span> <span class="n">fkIdList</span> <span class="o">=</span> <span class="n">xxxMapper</span><span class="o">.</span><span class="na">queryFkIdList</span><span class="o">(</span><span class="n">req</span><span class="o">);</span>
+    <span class="n">req</span><span class="o">.</span><span class="na">setFkIdList</span><span class="o">(</span><span class="n">idList</span><span class="o">);</span>
+
+    <span class="nc">PageHelper</span><span class="o">.</span><span class="na">startPage</span><span class="o">(</span><span class="n">req</span><span class="o">.</span><span class="na">getPageNum</span><span class="o">(),</span> <span class="n">req</span><span class="o">.</span><span class="na">getPageSize</span><span class="o">());</span>
+
+    <span class="c1">// 查询二</span>
+    <span class="nc">List</span><span class="o">&lt;</span><span class="nc">Xxx</span><span class="o">&gt;</span> <span class="n">data</span> <span class="o">=</span> <span class="n">xxxMapper</span><span class="o">.</span><span class="na">queryXxxList</span><span class="o">(</span><span class="n">req</span><span class="o">);</span>
+
+    <span class="c1">// some code here</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><strong>预期</strong> 的逻辑是：查询一不分页，得到一个结果集，作为查询二的条件，查询二分页。</p>
+
+<p><strong>实际</strong> 的现象是：查询一被自动添加了 limit，最多只能查询到 10 条数据（示例 req 里的 pageSize 传的 10），导致查询二的查询条件不正确。</p>
+
+<h2 id="分析">分析</h2>
+
+<p>初遇到这个问题时，一脸黑人问号，冷静下来后，分析了以下几种可能性，但都一一排除了。</p>
+
+<ul>
+  <li>调用当前方法的线程里，已经有其它地方先调用了 PageHelper.startPage()，导致当前方法里的查询一也被分页了；</li>
+  <li>调用当前方法的线程，上一次调度时设置的分页参数没有被清理；</li>
+  <li>无厘头的猜想：当前方法是不是在一个大的事务里，而 PageHelper 有什么特殊处理，导致一个事务里的查询都会被分页？</li>
+</ul>
+
+<p>最后通过在 PageInterceptor 里下断点发现了问题所在：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">Object</span> <span class="nf">intercept</span><span class="o">(</span><span class="nc">Invocation</span> <span class="n">invocation</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">Throwable</span> <span class="o">{</span>
+    <span class="c1">// some code here </span>
+
+    <span class="c1">//调用方法判断是否需要进行分页，如果不需要，直接返回结果</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">dialect</span><span class="o">.</span><span class="na">skip</span><span class="o">(</span><span class="n">ms</span><span class="o">,</span> <span class="n">parameter</span><span class="o">,</span> <span class="n">rowBounds</span><span class="o">))</span> <span class="o">{</span>
+        <span class="c1">// 自动 count 和 分页查询处理</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 跳过 count 和 分页查询处理</span>
+    <span class="o">}</span>
+    <span class="c1">// some code here</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>单步跟进 <code class="language-plaintext highlighter-rouge">dialect.skip</code> 方法，关键逻辑在 <code class="language-plaintext highlighter-rouge">PageParams.getPage</code> 方法里面：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="nc">Page</span> <span class="nf">getPage</span><span class="o">(</span><span class="nc">Object</span> <span class="n">parameterObject</span><span class="o">,</span> <span class="nc">RowBounds</span> <span class="n">rowBounds</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Page</span> <span class="n">page</span> <span class="o">=</span> <span class="nc">PageHelper</span><span class="o">.</span><span class="na">getLocalPage</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">page</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">rowBounds</span> <span class="o">!=</span> <span class="nc">RowBounds</span><span class="o">.</span><span class="na">DEFAULT</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">offsetAsPageNum</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">page</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Page</span><span class="o">(</span><span class="n">rowBounds</span><span class="o">.</span><span class="na">getOffset</span><span class="o">(),</span> <span class="n">rowBounds</span><span class="o">.</span><span class="na">getLimit</span><span class="o">(),</span> <span class="n">rowBoundsWithCount</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="n">page</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Page</span><span class="o">(</span><span class="k">new</span> <span class="kt">int</span><span class="o">[]{</span><span class="n">rowBounds</span><span class="o">.</span><span class="na">getOffset</span><span class="o">(),</span> <span class="n">rowBounds</span><span class="o">.</span><span class="na">getLimit</span><span class="o">()},</span> <span class="n">rowBoundsWithCount</span><span class="o">);</span>
+                <span class="c1">//offsetAsPageNum=false的时候，由于PageNum问题，不能使用reasonable，这里会强制为false</span>
+                <span class="n">page</span><span class="o">.</span><span class="na">setReasonable</span><span class="o">(</span><span class="kc">false</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="k">if</span><span class="o">(</span><span class="n">supportMethodsArguments</span><span class="o">){</span>
+            <span class="c1">// 注意这里，我们的查询一进了这个分支</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="n">page</span> <span class="o">=</span> <span class="nc">PageObjectUtil</span><span class="o">.</span><span class="na">getPageFromObject</span><span class="o">(</span><span class="n">parameterObject</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="k">if</span><span class="o">(</span><span class="n">page</span> <span class="o">==</span> <span class="kc">null</span><span class="o">){</span>
+            <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="nc">PageHelper</span><span class="o">.</span><span class="na">setLocalPage</span><span class="o">(</span><span class="n">page</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="c1">// some code here</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>可以看到，除了显式地提前调用 PageHelper.startPage、传递 rowBounds 参数进行分页外，还有一个 <code class="language-plaintext highlighter-rouge">else if(supportMethodsArguments)</code> 的分支，会从传递给查询的参数里尝试读取 <code class="language-plaintext highlighter-rouge">pageNum</code> 和 <code class="language-plaintext highlighter-rouge">pageSize</code> 字段的值作为分页参数。</p>
+
+<p>随后我查阅了 PageHelper 的官方文档，果然找到了相关的说明：</p>
+
+<blockquote>
+  <p>supportMethodsArguments：支持通过 Mapper 接口参数来传递分页参数，默认值 false，分页插件会从查询方法的参数值中，自动根据上面 params 配置的字段中取值，查找到合适的值时就会自动分页。 使用方法可以参考测试代码中的 com.github.pagehelper.test.basic 包下的 ArgumentsMapTest 和 ArgumentsObjTest。</p>
+</blockquote>
+
+<p><a href="https://github.com/pagehelper/Mybatis-PageHelper/blob/master/wikis/zh/HowToUse.md">https://github.com/pagehelper/Mybatis-PageHelper/blob/master/wikis/zh/HowToUse.md</a></p>
+
+<p>那么，为什么我们项目里的 <code class="language-plaintext highlighter-rouge">supportMethodsArguments</code> 会为 true 呢？在代码里没有搜索到，最终在 Apollo 配置中心找到了 <code class="language-plaintext highlighter-rouge">pagehelper.supportMethodsArguments = true</code>。</p>
+
+<p><strong>破案了。</strong></p>
+
+<h2 id="解决">解决</h2>
+
+<p>找到问题就好解决了。因为将 <code class="language-plaintext highlighter-rouge">pagehelper.supportMethodsArguments = true</code> 这个配置去掉影响太大不可控，所以此处只是将查询一的参数去掉分页字段即可。</p>
+
+<p>修改后：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="nc">Page</span><span class="o">&lt;</span><span class="nc">Xxx</span><span class="o">&gt;</span> <span class="nf">queryXxxList</span><span class="o">(</span><span class="nc">XxxPageReq</span> <span class="n">req</span><span class="o">)</span> <span class="o">{</span>
+
+    <span class="c1">// some code here</span>
+
+    <span class="c1">// 查询一，得到一个结果集，作为查询二的条件</span>
+    <span class="c1">// XxxNoPageReq 与 XxxPageReq 里的字段一样，除了没有 pageSize 和 pageNum</span>
+    <span class="nc">XxxNoPageReq</span> <span class="n">noPageReq</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">XxxNoPageReq</span><span class="o">();</span>
+    <span class="nc">BeanUtils</span><span class="o">.</span><span class="na">copyProperties</span><span class="o">(</span><span class="n">req</span><span class="o">,</span> <span class="n">noPageReq</span><span class="o">);</span>
+    <span class="nc">List</span><span class="o">&lt;</span><span class="nc">Long</span><span class="o">&gt;</span> <span class="n">fkIdList</span> <span class="o">=</span> <span class="n">xxxMapper</span><span class="o">.</span><span class="na">queryFkIdList</span><span class="o">(</span><span class="n">noPageReq</span><span class="o">);</span>
+
+    <span class="c1">// some code here</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h2 id="小结">小结</h2>
+
+<p>修完老代码里的这个问题，我无奈地笑了。真是前人挖坑，后人被坑啊……</p>
+
+<p>开个玩笑。</p>
+
+<p>这严格来说，其实并不能算一个问题，包括解决它需要走的那些弯路，都只能归咎于对 PageHelper 的用法，以及项目的配置，了解不完全。</p>
+
+<p>码途漫漫，上下求索。</p>
+:ET

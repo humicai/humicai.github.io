@@ -1,0 +1,88 @@
+I"} <p>我们先来看一下现象：</p>
+
+<p><img src="/images/posts/python/excel-1900-leap-year.gif" alt="" /></p>
+
+<p>实际上 <strong>1900 年不是闰年</strong>，没有 2 月 29 日，所以很明显 <strong>这是 Excel 的一个 Bug</strong>。</p>
+
+<h2 id="发现">发现</h2>
+
+<p>我之所以会留意到这个，是因为最近在做一个绩效核对的小工具，需要用 Python 读取和处理销售交上来的 Excel。</p>
+
+<p>销售交上来的东西总是稀奇古怪，比如有一列是要填日期，交上来的表格里，有的读出来是日期类型，有的读出来是字符串类型，这都还好说，日期类型直接用，字符串按格式解析成日期，就好了。但这天发现有个销售交上来的表格里，这一列读出来是数字类型。</p>
+
+<p>比如 <code class="language-plaintext highlighter-rouge">2024-02-01</code>，读出来对应数字 <code class="language-plaintext highlighter-rouge">45323</code>。</p>
+
+<p>怎么将这个数字转换成日期呢？</p>
+
+<p>首先搜索了微软的官方文档，找到关于 <a href="https://support.microsoft.com/en-us/office/date-systems-in-excel-e7fe7167-48a9-4b96-bb53-5612a800b487">Date systems in Excel</a> 的说明：</p>
+
+<blockquote>
+  <p>Excel supports two date systems, the 1900 date system and the 1904 date system. Each date system uses a unique starting date from which all other workbook dates are calculated. All versions of Excel for Windows calculate dates based on the 1900 date system. Excel 2008 for Mac and earlier Excel for Mac versions calculate dates based on the 1904 date system. Excel 2016 for Mac and Excel for Mac 2011 use the 1900 date system, which guarantees date compatibility with Excel for Windows.
+…
+In the 1900 date system, dates are calculated by using January 1, 1900, as a starting point. When you enter a date, it is converted into a serial number that represents the number of days elapsed since January 1, 1900.</p>
+</blockquote>
+
+<p>就是说，除了 Excel for Mac 的早期版本外，都是默认采用 1900 date system，以 <code class="language-plaintext highlighter-rouge">1900-01-01</code> 作为起点（第 1 天）。</p>
+
+<p>于是根据这个信息写一个函数来将数字转换成日期，但是 <strong>翻车了</strong>……</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="k">def</span> <span class="nf">int_to_date</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">date_zero</span> <span class="o">=</span> <span class="nf">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="nf">timedelta</span><span class="p">(</span><span class="n">days</span> <span class="o">=</span> <span class="n">s</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">date_zero</span> <span class="o">+</span> <span class="n">delta</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="nf">int_to_date</span><span class="p">(</span><span class="mi">45323</span><span class="p">))</span>
+
+<span class="c1"># 输出 2024-02-02 00:00:00
+</span></code></pre></div></div>
+
+<p>Excel 表格里是 <code class="language-plaintext highlighter-rouge">2024-02-01</code>，读出来是 <code class="language-plaintext highlighter-rouge">45323</code>，咋按 <code class="language-plaintext highlighter-rouge">1900-01-01</code> 作为第一天，反算出来 <code class="language-plaintext highlighter-rouge">45323</code> 却是 <code class="language-plaintext highlighter-rouge">2024-02-02</code> 了呢？</p>
+
+<h2 id="探究">探究</h2>
+
+<p>于是一番搜索，先是找到了 OpenOffice 论坛里的讨论 <a href="https://forum.openoffice.org/en/forum/viewtopic.php?t=108820">Why the base date is 1899-12-30 instead of 1899-12-31?</a>，里面有如下信息：</p>
+
+<blockquote>
+  <p>The earliest date Excel handles sensibly is 1900-01-01, which is “day 1” (not zero). This makes “Excel epoch” (day zero) 1899-12-31. However, Excel inherited an error from previous spreadsheet apps which assumed that 1900 was a leap year. The nonexistent 29th of February 1900 is counted in Excel time spans, just like it used to be in Lotus 123 and (IIRC) SuperCalc, and probably in most other relevant spreadsheet apps.</p>
+</blockquote>
+
+<p>有意思了……于是继续在维基百科的 <a href="https://zh.wikipedia.org/wiki/Microsoft_Excel">Microsoft Excel</a> 词条上找到了佐证信息：</p>
+
+<blockquote>
+  <p>Excel的时间系统中，会认为1900年2月29日是有效日期，也就是1900年为闰年，但实际上并不是。这是源于模仿早期竞品Lotus 1-2-3上的缺陷而引入的特性，由于Lotus 1-2-3的时间纪元以1900年起始，之后的时间为差值累加，导致其时间体系一开始就认为1900年是闰年，而Excel为了兼容Lotus 1-2-3的文件格式，也保留了这个缺陷作为特性而不进行修复，即使至今最新版本已不需要兼容Lotus 1-2-3。</p>
+</blockquote>
+
+<p>里面还给出了微软官方的相关解释链接：<a href="https://learn.microsoft.com/en-US/office/troubleshoot/excel/wrongly-assumes-1900-is-leap-year">Excel incorrectly assumes that the year 1900 is a leap year</a>，并且讲述了 Excel 的发展历史，挺有趣的，可以一读。</p>
+
+<p>至此，就破案了。</p>
+
+<h2 id="数字到日期的换算">数字到日期的换算</h2>
+
+<p>我们上面提供的数字到日期的换算的方案，做个小修正就能使用了：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="k">def</span> <span class="nf">int_to_date</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">date_zero</span> <span class="o">=</span> <span class="nf">datetime</span><span class="p">(</span><span class="mi">1899</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="nf">timedelta</span><span class="p">(</span><span class="n">days</span> <span class="o">=</span> <span class="n">s</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">date_zero</span> <span class="o">+</span> <span class="n">delta</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="nf">int_to_date</span><span class="p">(</span><span class="mi">45323</span><span class="p">))</span>
+
+<span class="c1"># 输出 2024-02-01 00:00:00
+</span></code></pre></div></div>
+
+<p>当然这个程序并不完美，比如计算 60 以内的数字，算出来的就与 Excel 上显示的日期不一致，但 who cares……毕竟 Excel 上有 <code class="language-plaintext highlighter-rouge">1900-02-29</code> 这种你永远不会用到的日期 :laughing:</p>
+
+<h2 id="参考链接">参考链接</h2>
+
+<ul>
+  <li><a href="https://support.microsoft.com/en-us/office/date-systems-in-excel-e7fe7167-48a9-4b96-bb53-5612a800b487">https://support.microsoft.com/en-us/office/date-systems-in-excel-e7fe7167-48a9-4b96-bb53-5612a800b487</a></li>
+  <li><a href="https://forum.openoffice.org/en/forum/viewtopic.php?t=108820">https://forum.openoffice.org/en/forum/viewtopic.php?t=108820</a></li>
+  <li><a href="https://zh.wikipedia.org/wiki/Microsoft_Excel">https://zh.wikipedia.org/wiki/Microsoft_Excel</a></li>
+  <li><a href="https://learn.microsoft.com/en-US/office/troubleshoot/excel/wrongly-assumes-1900-is-leap-year">https://learn.microsoft.com/en-US/office/troubleshoot/excel/wrongly-assumes-1900-is-leap-year</a></li>
+</ul>
+
+:ET

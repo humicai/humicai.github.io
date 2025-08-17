@@ -1,0 +1,74 @@
+I"q<p>之前写过<a href="https://mp.weixin.qq.com/s/kMRkQ6j-ipet85si-rbfyw">《Android｜集成 slf4j + logback 作为日志框架》</a>，最近在给手上的另外一个 Android 项目添加 logback 日志框架时，遇到一个导致无法输出日志到文件的问题，也耽误了不少时间，这里记录一下。</p>
+
+<h2 id="现象">现象</h2>
+
+<p>代码里通过 <code class="language-plaintext highlighter-rouge">@Slf4j</code> 注解注入 logger，正常 <code class="language-plaintext highlighter-rouge">log.info(xxx)</code>，但是程序启动后，发现没有生成日志文件。</p>
+
+<h2 id="排查">排查</h2>
+
+<h3 id="检查配置文件">检查配置文件</h3>
+
+<p>有前一个项目的成功经验，我直接复制了之前项目的配置文件，只是将日志存储文件夹修改为了 <code class="language-plaintext highlighter-rouge">${DATA_DIR}/log</code>，其中 <code class="language-plaintext highlighter-rouge">DATA_DIR</code> 变量是指代 <code class="language-plaintext highlighter-rouge">Context.getFilesDir()</code>，它也不存在权限申请之类的问题。测试了将它写死成一个绝对路径，也没有日志文件生成。</p>
+
+<p>基本排除配置文件的问题。</p>
+
+<h3 id="打开-logback-的-debug-模式">打开 logback 的 debug 模式</h3>
+
+<p>将 logback.xml 文件的根元素 <code class="language-plaintext highlighter-rouge">&lt;configuration&gt;</code> 添加 <code class="language-plaintext highlighter-rouge">debug="true"</code> 属性，重启程序，查看 logcat 输出，发现如下异常：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>11:34:06,785 |-ERROR <span class="k">in </span>ch.qos.logback.core.rolling.RollingFileAppender[local_file] - Failed to create parent directories <span class="k">for</span> <span class="o">[</span>/log/app.log]
+11:34:06,786 |-ERROR <span class="k">in </span>ch.qos.logback.core.rolling.RollingFileAppender[local_file] - openFile<span class="o">(</span>/log/student.log,true<span class="o">)</span> failed java.io.FileNotFoundException: /log/app.log: open failed: ENOENT <span class="o">(</span>No such file or directory<span class="o">)</span>
+	at java.io.FileNotFoundException: /log/student.log: open failed: ENOENT <span class="o">(</span>No such file or directory<span class="o">)</span>
+        ...
+	at 	at org.slf4j.LoggerFactory.getLogger<span class="o">(</span>LoggerFactory.java:416<span class="o">)</span>
+	at 	at org.mazhuang.OnlineApplication.&lt;clinit&gt;<span class="o">(</span>OnlineApplication.java:21<span class="o">)</span>
+</code></pre></div></div>
+
+<p>初始化日志文件路径失败，但是输出的日志文件路径是 <code class="language-plaintext highlighter-rouge">/log/app.log</code>，而不是我配置的 <code class="language-plaintext highlighter-rouge">${DATA_DIR}/log/app.log</code>，这里有问题。</p>
+
+<p>可以看出是 logback 没有正确解析 <code class="language-plaintext highlighter-rouge">${DATA_DIR}</code> 变量，导致日志文件路径错误。但是为什么会这样呢？并没有什么头绪，难道是 logback 的 bug？</p>
+
+<h3 id="检查-logback-android-的-wiki">检查 logback-android 的 wiki</h3>
+
+<p>在想了好久仍然没有头绪之后，浏览 logback-android 的 wiki，发现在介绍 <code class="language-plaintext highlighter-rouge">DATA_DIR</code> 等变量的地方，有这么一段以前没留意的描述：</p>
+
+<blockquote>
+  <p>Note these special properties are initialized when the first logger is instantiated (i.e., via LoggerFactory.getLogger()), but that must be done when the application context is available (e.g., in the onCreate method of your Application class or at any point thereafter). Otherwise, the special properties will resolve to empty strings.</p>
+</blockquote>
+
+<p>这段话大意是，<code class="language-plaintext highlighter-rouge">DATA_DIR</code> 等这些变量，是在第一次调用 <code class="language-plaintext highlighter-rouge">LoggerFactory.getLogger()</code> 时初始化的，但是必须在 application context 可用之后（例如在 Application 类的 <code class="language-plaintext highlighter-rouge">onCreate</code> 方法中或之后的任何时候）。否则，这些变量将解析为空字符串。</p>
+
+<p>结合上面异常堆栈里的信息，可以判断是因为在 Application 类的类初始化（<code class="language-plaintext highlighter-rouge">clinit</code>）过程中调用了 <code class="language-plaintext highlighter-rouge">LoggerFactory.getLogger()</code>，此时 application context 还不可用，导致 logback 无法正确解析 <code class="language-plaintext highlighter-rouge">${DATA_DIR}</code> 变量。</p>
+
+<h3 id="进一步探究">进一步探究</h3>
+
+<p>而为什么 Application 类的类初始化过程中会调用 <code class="language-plaintext highlighter-rouge">LoggerFactory.getLogger()</code> 呢？检查代码，发现是在自定义 Application 类及其基类中使用了 <code class="language-plaintext highlighter-rouge">@Slf4j</code> 注解，这个注解会生成一个静态的 logger，而这个 logger 的初始化会调用 <code class="language-plaintext highlighter-rouge">LoggerFactory.getLogger()</code>——太早了。</p>
+
+<p>参见 <code class="language-plaintext highlighter-rouge">@Slf4j</code> 注解源文件里的注释：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Causes lombok to generate a logger field.
+Complete documentation is found at the project lombok features page for lombok log annotations .
+Example:
+  @Slf4j
+  public class LogExample {
+  }
+  
+will generate:
+  public class LogExample {
+      private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LogExample.class);
+  }
+</code></pre></div></div>
+
+<h2 id="解决">解决</h2>
+
+<p>去掉自定义 Application 类及其基类上的 <code class="language-plaintext highlighter-rouge">@Slf4j</code> 注解，如果需要在 Application 类里打印日志，改为在 <code class="language-plaintext highlighter-rouge">onCreate</code> 方法中手动初始化 logger。</p>
+
+<p>又一次印证了认真阅读文档的重要性。:cry:</p>
+
+<h2 id="参考">参考</h2>
+
+<ul>
+  <li><a href="https://github.com/tony19/logback-android/wiki#special-properties-for-xml-config">https://github.com/tony19/logback-android/wiki#special-properties-for-xml-config</a></li>
+</ul>
+
+:ET

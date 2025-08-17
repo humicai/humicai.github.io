@@ -1,0 +1,120 @@
+I"� <p>本文介绍如何通过自定义 IDEA 的 JUnit4 Test Class 模板，实现生成测试类时自动注入 logger 和被测 Service。</p>
+
+<h2 id="背景">背景</h2>
+
+<p>在 IntelliJ IDEA 中，通过快捷键可以快速生成 JUnit4 测试类，但是生成测试类以后，总是需要手动添加 logger 和被测 Service 的注入。虽然这是一个很小的「重复动作」，但程序员还是不能忍（<em>其实已经忍了很多年了</em>）。</p>
+
+<h2 id="需求">需求</h2>
+
+<p>以给如下简单的 Service 生成测试类为例：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">package</span> <span class="nn">com.test.data.user.service</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">com.test.common.base.BaseService</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">com.test.data.user.entity.UserSource</span><span class="o">;</span>
+
+<span class="cm">/**
+ * @author mazhuang
+ */</span>
+<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">UserSourceService</span> <span class="kd">extends</span> <span class="nc">BaseService</span><span class="o">&lt;</span><span class="nc">UserSource</span><span class="o">&gt;</span> <span class="o">{</span>
+
+    <span class="cm">/**
+     * 记录用户来源
+     * @param userId -
+     * @param threadId -
+     */</span>
+    <span class="kt">void</span> <span class="nf">recordUserSource</span><span class="o">(</span><span class="nc">Long</span> <span class="n">userId</span><span class="o">,</span> <span class="nc">Long</span> <span class="n">threadId</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><kbd>command + n</kbd> 调出 Generate 菜单，然后选择 Test，配置测试类的名称、基类和包：</p>
+
+<p><img src="/images/posts/java/idea-generate-junit4-test-class.png" alt="" /></p>
+
+<p>默认生成的测试类如下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">package</span> <span class="nn">com.test.data.user.service</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">junit</span><span class="o">.</span><span class="na">Assert</span><span class="o">.*;</span>
+
+<span class="kn">import</span> <span class="nn">com.test.BaseTests</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">org.junit.Test</span><span class="o">;</span>
+
+<span class="cm">/**
+ * @author mazhuang
+ */</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">UserSourceServiceTest</span> <span class="kd">extends</span> <span class="nc">BaseTests</span> <span class="o">{</span>
+    <span class="nd">@Test</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">recordUserSource</span><span class="o">()</span> <span class="o">{</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>然而在写测试用例的过程中，总是需要用到 logger 和 Service，所以期望中的测试类默认长这样：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">package</span> <span class="nn">com.test.data.user.service</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">junit</span><span class="o">.</span><span class="na">Assert</span><span class="o">.*;</span>
+
+<span class="kn">import</span> <span class="nn">com.test.BaseTests</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">org.junit.Test</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">lombok.extern.slf4j.Slf4j</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">org.springframework.beans.factory.annotation.Autowired</span><span class="o">;</span>
+
+<span class="cm">/**
+ * @author mazhuang
+ */</span>
+<span class="nd">@Slf4j</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">UserSourceServiceTest</span> <span class="kd">extends</span> <span class="nc">BaseTests</span> <span class="o">{</span>
+
+    <span class="nd">@Autowired</span>
+    <span class="kd">private</span> <span class="nc">UserSourceService</span> <span class="n">userSourceService</span><span class="o">;</span>
+
+    <span class="nd">@Test</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">recordUserSource</span><span class="o">()</span> <span class="o">{</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h2 id="方案与实现">方案与实现</h2>
+
+<p>经过一番 search，发现 IDEA 的 Preference - Editor - File and Code Templates 的 Code 里有一个 JUnit4 Test Class，可以自定义生成 JUnit4 测试类的模板。</p>
+
+<p>这个模板原始内容是这样的：</p>
+
+<div class="language-velocity highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import static org.junit.Assert.*;
+<span class="p">#</span><span class="nf">parse</span><span class="p">(</span><span class="s2">"File Header.java"</span><span class="p">)</span>
+public class <span class="p">${</span><span class="nv">NAME</span><span class="p">}</span> <span class="err">{</span>
+  <span class="p">${</span><span class="nv">BODY</span><span class="p">}</span>
+}
+</code></pre></div></div>
+
+<p>基于我们的需求，将其修改为以下内容即可：</p>
+
+<div class="language-velocity highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">#</span><span class="nf">set</span><span class="p">(</span> <span class="p">$</span><span class="nv">LastDotIndex</span> <span class="o">=</span> <span class="p">$</span><span class="nv">CLASS_NAME</span><span class="p">.</span><span class="nv">lastIndexOf</span><span class="p">(</span><span class="s2">"."</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">)</span>
+<span class="p">#</span><span class="nf">set</span><span class="p">(</span> <span class="p">$</span><span class="nv">CamelCaseName</span> <span class="o">=</span> <span class="s2">"$CLASS_NAME.substring($LastDotIndex)"</span> <span class="p">)</span>
+<span class="p">#</span><span class="nf">set</span><span class="p">(</span> <span class="p">$</span><span class="nv">CamelCaseName</span> <span class="o">=</span> <span class="s2">"$CamelCaseName.substring(0, 1).toLowerCase()$CamelCaseName.substring(1)"</span><span class="p">)</span>
+
+import static org.junit.Assert.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+<span class="p">#</span><span class="nf">parse</span><span class="p">(</span><span class="s2">"File Header.java"</span><span class="p">)</span>
+@Slf4j
+public class <span class="p">${</span><span class="nv">NAME</span><span class="p">}</span> <span class="err">{</span>
+
+    @Autowired
+    private <span class="p">${</span><span class="nv">CLASS_NAME</span><span class="p">}</span> <span class="p">${</span><span class="nv">CamelCaseName</span><span class="p">}</span>;
+  <span class="p">${</span><span class="nv">BODY</span><span class="p">}</span>
+}
+</code></pre></div></div>
+
+<p>其中，<code class="language-plaintext highlighter-rouge">${CLASS_NAME}</code> 是被测试类的全限定名，<code class="language-plaintext highlighter-rouge">${CamelCaseName}</code> 是根据 <code class="language-plaintext highlighter-rouge">${CLASS_NAME}</code> 生成的被测试类的驼峰命名。</p>
+
+<p>至此，经过一点微小的努力，我们实现了一个小小的自动化，工作效率又提高了一点点，程序员又开心了一点点。</p>
+
+<h2 id="小结">小结</h2>
+
+<p>察觉到重复动作，并消除——也许可以称之为「偷懒」，这是程序员的日常小乐趣，也是 <em>人类进步的动力</em> 吧。</p>
+
+<p>文中完整脚本已上传至 GitHub，仓库地址：<a href="https://github.com/mzlogin/code-generator">https://github.com/mzlogin/code-generator</a> ，以后如果有更新，或者新的代码生成脚本，也会放在这个仓库里。</p>
+:ET

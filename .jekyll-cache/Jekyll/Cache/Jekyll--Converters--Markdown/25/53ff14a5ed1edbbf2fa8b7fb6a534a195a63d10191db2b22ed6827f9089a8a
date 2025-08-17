@@ -1,0 +1,143 @@
+I"a6<p>很久以前在使用 Java 的 List.subList 方法时踩过一个坑，当时记了一条待办，要写一写这事，今天完成它。</p>
+
+<p>我们先来看一段代码：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 初始化 list 为 { 1, 2, 3, 4, 5 }</span>
+<span class="nc">List</span><span class="o">&lt;</span><span class="nc">Integer</span><span class="o">&gt;</span> <span class="n">list</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+<span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+    <span class="n">list</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 取前 3 个元素作为 subList，操作 subList</span>
+<span class="nc">List</span><span class="o">&lt;</span><span class="nc">Integer</span><span class="o">&gt;</span> <span class="n">subList</span> <span class="o">=</span> <span class="n">list</span><span class="o">.</span><span class="na">subList</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="mi">3</span><span class="o">);</span>
+<span class="n">subList</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="mi">6</span><span class="o">);</span>
+
+<span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">list</span><span class="o">.</span><span class="na">size</span><span class="o">());</span>
+</code></pre></div></div>
+
+<p>输出是 <code class="language-plaintext highlighter-rouge">5</code> 还是 <code class="language-plaintext highlighter-rouge">6</code>？</p>
+
+<p>没踩过坑的我，会回答是 <code class="language-plaintext highlighter-rouge">5</code>，理由是：往一个 List 里加元素，关其它 List 什么事？</p>
+
+<p>而掉过坑的我，口中直呼 666。</p>
+
+<p>好了不绕弯子，我们直接看下 List.subList 方法的注释文档：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/**
+ * Returns a view of the portion of this list between the specified
+ * &lt;tt&gt;fromIndex&lt;/tt&gt;, inclusive, and &lt;tt&gt;toIndex&lt;/tt&gt;, exclusive.  (If
+ * &lt;tt&gt;fromIndex&lt;/tt&gt; and &lt;tt&gt;toIndex&lt;/tt&gt; are equal, the returned list is
+ * empty.)  The returned list is backed by this list, so non-structural
+ * changes in the returned list are reflected in this list, and vice-versa.
+ * The returned list supports all of the optional list operations supported
+ * by this list.&lt;p&gt;
+ *
+ * This method eliminates the need for explicit range operations (of
+ * the sort that commonly exist for arrays).  Any operation that expects
+ * a list can be used as a range operation by passing a subList view
+ * instead of a whole list.  For example, the following idiom
+ * removes a range of elements from a list:
+ * &lt;pre&gt;{@code
+ *      list.subList(from, to).clear();
+ * }&lt;/pre&gt;
+ * Similar idioms may be constructed for &lt;tt&gt;indexOf&lt;/tt&gt; and
+ * &lt;tt&gt;lastIndexOf&lt;/tt&gt;, and all of the algorithms in the
+ * &lt;tt&gt;Collections&lt;/tt&gt; class can be applied to a subList.&lt;p&gt;
+ *
+ * The semantics of the list returned by this method become undefined if
+ * the backing list (i.e., this list) is &lt;i&gt;structurally modified&lt;/i&gt; in
+ * any way other than via the returned list.  (Structural modifications are
+ * those that change the size of this list, or otherwise perturb it in such
+ * a fashion that iterations in progress may yield incorrect results.)
+ *
+ * @param fromIndex low endpoint (inclusive) of the subList
+ * @param toIndex high endpoint (exclusive) of the subList
+ * @return a view of the specified range within this list
+ * @throws IndexOutOfBoundsException for an illegal endpoint index value
+ *         (&lt;tt&gt;fromIndex &amp;lt; 0 || toIndex &amp;gt; size ||
+ *         fromIndex &amp;gt; toIndex&lt;/tt&gt;)
+ */</span>
+<span class="nc">List</span><span class="o">&lt;</span><span class="no">E</span><span class="o">&gt;</span> <span class="nf">subList</span><span class="o">(</span><span class="kt">int</span> <span class="n">fromIndex</span><span class="o">,</span> <span class="kt">int</span> <span class="n">toIndex</span><span class="o">);</span>
+</code></pre></div></div>
+
+<p>这里面有几个要点：</p>
+
+<ol>
+  <li>
+    <p>subList 返回的是原 List 的一个 <strong>视图</strong>，而不是一个新的 List，所以对 subList 的操作会反映到原 List 上，反之亦然；</p>
+  </li>
+  <li>
+    <p>如果原 List 在 subList 操作期间发生了结构修改，那么 subList 的行为就是未定义的（实际表现为抛异常）。</p>
+  </li>
+</ol>
+
+<p>第一点好理解，看到「视图」这个词相信大家就都能理解了。我们甚至可以结合 ArrayList 里的 SubList 子类源码进一步看下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">private</span> <span class="kd">class</span> <span class="nc">SubList</span> <span class="kd">extends</span> <span class="nc">AbstractList</span><span class="o">&lt;</span><span class="no">E</span><span class="o">&gt;</span> <span class="kd">implements</span> <span class="nc">RandomAccess</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">AbstractList</span><span class="o">&lt;</span><span class="no">E</span><span class="o">&gt;</span> <span class="n">parent</span><span class="o">;</span>
+    <span class="c1">// ...</span>
+
+    <span class="nc">SubList</span><span class="o">(</span><span class="nc">AbstractList</span><span class="o">&lt;</span><span class="no">E</span><span class="o">&gt;</span> <span class="n">parent</span><span class="o">,</span>
+            <span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">int</span> <span class="n">fromIndex</span><span class="o">,</span> <span class="kt">int</span> <span class="n">toIndex</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">parent</span> <span class="o">=</span> <span class="n">parent</span><span class="o">;</span>
+        <span class="c1">// ...</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">modCount</span> <span class="o">=</span> <span class="nc">ArrayList</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">modCount</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="no">E</span> <span class="nf">set</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="no">E</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// ...</span>
+        <span class="n">checkForComodification</span><span class="o">();</span>
+        <span class="c1">// ...</span>
+        <span class="nc">ArrayList</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">elementData</span><span class="o">[</span><span class="n">offset</span> <span class="o">+</span> <span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">e</span><span class="o">;</span>
+        <span class="c1">// ...</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="no">E</span> <span class="nf">get</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// ...</span>
+        <span class="n">checkForComodification</span><span class="o">();</span>
+        <span class="k">return</span> <span class="nc">ArrayList</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">elementData</span><span class="o">(</span><span class="n">offset</span> <span class="o">+</span> <span class="n">index</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">add</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="no">E</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// ...</span>
+        <span class="n">checkForComodification</span><span class="o">();</span>
+        <span class="n">parent</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">parentOffset</span> <span class="o">+</span> <span class="n">index</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">modCount</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="na">modCount</span><span class="o">;</span>
+        <span class="c1">// ...</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="no">E</span> <span class="nf">remove</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// ...</span>
+        <span class="n">checkForComodification</span><span class="o">();</span>
+        <span class="no">E</span> <span class="n">result</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">parentOffset</span> <span class="o">+</span> <span class="n">index</span><span class="o">);</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">modCount</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="na">modCount</span><span class="o">;</span>
+        <span class="c1">// ...</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">checkForComodification</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="nc">ArrayList</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">modCount</span> <span class="o">!=</span> <span class="k">this</span><span class="o">.</span><span class="na">modCount</span><span class="o">)</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="c1">// ...</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>可以看到几乎所有的读写操作都是映射到 ArrayList.this、或者 parent（即原 List）上的，包括 <code class="language-plaintext highlighter-rouge">size</code>、<code class="language-plaintext highlighter-rouge">add</code>、<code class="language-plaintext highlighter-rouge">remove</code>、<code class="language-plaintext highlighter-rouge">set</code>、<code class="language-plaintext highlighter-rouge">get</code>、<code class="language-plaintext highlighter-rouge">removeRange</code>、<code class="language-plaintext highlighter-rouge">addAll</code> 等等。</p>
+
+<p>第二点，我们在文首的示例代码里加上两句代码看现象：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">list</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+<span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">subList</span><span class="o">);</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">System.out.println</code> 会抛出异常 <code class="language-plaintext highlighter-rouge">java.util.ConcurrentModificationException</code>。</p>
+
+<p>我们还可以试下，在声明 subList 后，如果对原 List 进行元素增删操作，然后再读写 subList，基本都会抛出此异常。</p>
+
+<p>因为 subList 里的所有读写操作里都调用了 <code class="language-plaintext highlighter-rouge">checkForComodification()</code>，这个方法里检验了 subList 和 List 的 <code class="language-plaintext highlighter-rouge">modCount</code> 字段值是否相等，如果不相等则抛出异常。</p>
+
+<p><code class="language-plaintext highlighter-rouge">modCount</code> 字段定义在 AbstractList 中，记录所属 List 发生 <strong>结构修改</strong> 的次数。<strong>结构修改</strong> 包括修改 List 大小（如 add、remove 等）、或者会使正在进行的迭代器操作出错的修改（如 sort、replaceAll 等）。</p>
+
+<p>好了小结一下，这其实不算是坑，只是 <strong>不应该仅凭印象和猜测，就开始使用一个方法，至少花一分钟认真读完它的官方注释文档</strong>。</p>
+:ET
