@@ -2,7 +2,7 @@
 #   Main Configs   #
 # ---------------- #
 baseurl:
-url: http://127.0.0.1:4000/
+url: https://humicai.github.io
 date_format: "ordinal"
 title: 轻微生活
 subtitle: "公众号：轻微生活"
